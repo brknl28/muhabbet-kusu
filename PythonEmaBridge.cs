@@ -22,7 +22,7 @@ internal sealed class PythonEmaBridge : IDisposable, IAsyncDisposable
         _bridgePath = bridgePath;
     }
 
-    public async Task<BridgeReply> StartAsync(CancellationToken cancellationToken = default)
+    public async Task<BridgeReply> StartAsync(CancellationToken cancellationToken = default, Action<string>? onStatus = null)
     {
         await _requestLock.WaitAsync(cancellationToken);
         try
@@ -54,6 +54,8 @@ internal sealed class PythonEmaBridge : IDisposable, IAsyncDisposable
                 CreateNoWindow = true,
                 WorkingDirectory = Path.GetDirectoryName(_bridgePath) ?? AppContext.BaseDirectory
             };
+            psi.Environment["MUHABBET_MODELS_DIR"] = Path.Combine(Path.GetDirectoryName(_bridgePath)!, "..", "models");
+            psi.Environment["PYTHONNOUSERSITE"] = "1";
 
             _process = new Process { StartInfo = psi, EnableRaisingEvents = true };
             _process.ErrorDataReceived += (_, e) =>
@@ -96,6 +98,11 @@ internal sealed class PythonEmaBridge : IDisposable, IAsyncDisposable
                 try
                 {
                     reply = JsonSerializer.Deserialize<BridgeReply>(line, JsonOptions());
+                    if (reply?.Status == "loading")
+                    {
+                        onStatus?.Invoke(reply.Message ?? "Ses modelleri hazırlanıyor…");
+                        continue;
+                    }
                     if (reply != null && reply.Status != null)
                         break;
                 }
@@ -288,4 +295,5 @@ internal sealed record BridgeReply(
     [property: System.Text.Json.Serialization.JsonPropertyName("seed")] long? Seed,
     [property: System.Text.Json.Serialization.JsonPropertyName("device")] string? Device,
     [property: System.Text.Json.Serialization.JsonPropertyName("model")] string? Model,
-    [property: System.Text.Json.Serialization.JsonPropertyName("progress")] int? Progress);
+    [property: System.Text.Json.Serialization.JsonPropertyName("progress")] int? Progress,
+    [property: System.Text.Json.Serialization.JsonPropertyName("message")] string? Message = null);

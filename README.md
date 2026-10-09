@@ -18,7 +18,13 @@ Windows için yerel Türkçe metinden sese uygulaması. WinUI 3 arayüzü, **EMA
 
 ## Kurulum
 
-Windows 10/11 (x64), .NET 8 SDK ve PATH üzerinde Python gerekir. MP3 dışa aktarma için FFmpeg de PATH üzerinde bulunmalıdır.
+Windows 10 (2004 ve sonrası) veya Windows 11, x64 gerekir. Setup dosyasını çalıştırın. Python, .NET ve FFmpeg kurulum paketine dahildir.
+
+Modeller önce kurulum sırasında indirilir. Bu adım atlanırsa veya indirme tamamlanmazsa uygulama ilk açılışta yeniden dener. Modeller uygulama klasörünün `models/` dizininde saklanır. İndirme tamamlandıktan sonra internet gerekmez.
+
+## Kaynaktan Çalıştırma
+
+Geliştirme için .NET 8 SDK ve Python 3.12 gerekir.
 
 ```powershell
 python -m pip install ema-lightning antalia-mini
@@ -26,7 +32,7 @@ python -m pip install ema-lightning antalia-mini
 .\run.ps1
 ```
 
-İlk çalıştırmada model ağırlıkları indirilir. İndirme tamamlandıktan sonra ses üretimi yerel çalışır. Üretilen dosyalar `outputs/` klasörüne kaydedilir. Publish çıktısı Windows App Runtime dosyalarını içerir; ayrı runtime paketi kurulumu gerekmez.
+Üretilen dosyalar `outputs/` klasörüne kaydedilir. Setup üretmek için Inno Setup 6.7+, FFmpeg ve kurulu Python paketleri ile `.\build-setup.ps1 -CompilerPath "C:\...\ISCC.exe"` çalıştırın. Çıktı `artifacts/setup/` klasöründedir.
 
 ## Lisans
 

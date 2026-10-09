@@ -54,7 +54,30 @@ class ProgressTracker:
         if finish:
             self.report(100)
 
+from model_runtime import configure_cache, ensure_models
+
+startup_stop = threading.Event()
+startup_message = "Ses modelleri hazırlanıyor…"
+
+
+def startup_status(message):
+    global startup_message
+    startup_message = message
+    send({"ok": True, "status": "loading", "message": message})
+
+
+def startup_heartbeat():
+    while not startup_stop.wait(5):
+        send({"ok": True, "status": "loading", "message": startup_message})
+
+
+startup_thread = threading.Thread(target=startup_heartbeat, daemon=True)
+startup_thread.start()
+
 try:
+    model_root = configure_cache()
+    ensure_models(model_root, startup_status)
+    startup_status("Ses modelleri yükleniyor…")
     import torch
     from ema_lightning import EMA
     from antalia_mini import Antalia
@@ -65,6 +88,8 @@ try:
     ema_tts = EMA()
     antalia_tts = Antalia(model="cloud0day3/antalia-mini")
 
+    startup_stop.set()
+    startup_thread.join()
     send({
         "ok": True,
         "status": "ready",
@@ -72,6 +97,8 @@ try:
         "models": ["ema", "antalia"]
     })
 except Exception as exc:
+    startup_stop.set()
+    startup_thread.join()
     send({
         "ok": False,
         "status": "startup_error",

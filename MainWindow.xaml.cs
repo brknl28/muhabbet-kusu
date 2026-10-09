@@ -81,7 +81,10 @@ public sealed partial class MainWindow : Window
     }
     private async Task InitializeModelsAsync()
     {
-        SetBusy(true, "Modeller yükleniyor (EMA Lightning & Antalia-2 Mini); ilk çalıştırmada ağırlıklar indirilebilir…");
+        SetBusy(true, "Ses modelleri hazırlanıyor. İlk açılışta internet bağlantısı gerekebilir…");
+        ProgressPanel.Visibility = Visibility.Visible;
+        SynthesisProgressBar.IsIndeterminate = true;
+        ProgressPercentText.Visibility = Visibility.Collapsed;
         try
         {
             _pythonExe = FindPython();
@@ -96,7 +99,8 @@ public sealed partial class MainWindow : Window
             }
 
             _bridge = new PythonEmaBridge(_pythonExe, bridgePath);
-            var reply = await _bridge.StartAsync();
+            var reply = await _bridge.StartAsync(onStatus: message =>
+                DispatcherQueue.TryEnqueue(() => StatusText.Text = message));
             _idleStatusText = $"Hazır · Aygıt: {reply.Device ?? "bilinmiyor"} · Modeller: EMA Lightning, Antalia-2 Mini";
             StatusText.Text = _idleStatusText;
         }
@@ -104,11 +108,15 @@ public sealed partial class MainWindow : Window
         {
             _bridge?.Dispose();
             _bridge = null;
-            _idleStatusText = "Modeller başlatılamadı: " + ex.Message;
+            Debug.WriteLine(ex);
+            _idleStatusText = "Ses modelleri hazırlanamadı. İnternet bağlantınızı kontrol edip Sesi Oluştur ile yeniden deneyin.";
             StatusText.Text = _idleStatusText;
         }
         finally
         {
+            SynthesisProgressBar.IsIndeterminate = false;
+            ProgressPercentText.Visibility = Visibility.Visible;
+            ProgressPanel.Visibility = Visibility.Collapsed;
             SetBusy(false);
         }
     }
@@ -366,7 +374,8 @@ public sealed partial class MainWindow : Window
     {
         if (_isBusy || string.IsNullOrEmpty(_currentWav) || !File.Exists(_currentWav)) return;
 
-        var ffmpeg = FindOnPath("ffmpeg.exe") ?? FindOnPath("ffmpeg");
+        var bundledFfmpeg = Path.Combine(AppContext.BaseDirectory, "runtime", "ffmpeg", "ffmpeg.exe");
+        var ffmpeg = File.Exists(bundledFfmpeg) ? bundledFfmpeg : FindOnPath("ffmpeg.exe") ?? FindOnPath("ffmpeg");
         if (ffmpeg is null)
         {
             ResultText.Text = "MP3 için FFmpeg bulunamadı (winget install Gyan.FFmpeg).";
@@ -568,6 +577,8 @@ public sealed partial class MainWindow : Window
 
     private static string FindPython()
     {
+        var bundledPython = Path.Combine(AppContext.BaseDirectory, "runtime", "python", "python.exe");
+        if (File.Exists(bundledPython)) return bundledPython;
         var candidates = new[] { "python.exe", "python", "py.exe", "py" };
         foreach (var candidate in candidates)
         {

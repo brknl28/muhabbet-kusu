@@ -628,6 +628,7 @@ public class MuhabbetKusuTests
             "import sys, json\n" +
             "sys.stdout.write('Warning: CUDA capability 8.6 detected\\n')\n" +
             "sys.stdout.write('Notice: oneDNN optimizations active\\n')\n" +
+            "sys.stdout.write(json.dumps({'ok': True, 'status': 'loading', 'message': 'Downloading models'}) + '\\n')\n" +
             "sys.stdout.write(json.dumps({'ok': True, 'status': 'ready', 'device': 'Simulated-GPU', 'models': ['ema', 'antalia']}) + '\\n')\n" +
             "sys.stdout.flush()\n" +
             "for line in sys.stdin:\n" +
@@ -637,11 +638,13 @@ public class MuhabbetKusuTests
         try
         {
             await using var bridge = new PythonEmaBridge("python", tempScript);
-            var reply = await bridge.StartAsync();
+            var statusMessages = new List<string>();
+            var reply = await bridge.StartAsync(onStatus: statusMessages.Add);
 
             Assert.True(reply.Ok);
             Assert.Equal("ready", reply.Status);
             Assert.Equal("Simulated-GPU", reply.Device);
+            Assert.Equal(new[] { "Downloading models" }, statusMessages);
 
             // Re-calling StartAsync returns cached reply with preserved Device
             var cachedReply = await bridge.StartAsync();

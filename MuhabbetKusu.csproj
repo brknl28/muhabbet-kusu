@@ -9,7 +9,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MuhabbetKusu</AssemblyName>
-    <DefaultItemExcludes>$(DefaultItemExcludes);tests\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests\**;artifacts\**;models\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- WinUI 3 unpackaged execution mode -->
@@ -41,8 +41,9 @@
 
   <ItemGroup>
     <None Update="Assets\app.ico;Assets\app.svg;Assets\app.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <None Include="bridge\ema_bridge.py">
+    <None Update="bridge\*.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>

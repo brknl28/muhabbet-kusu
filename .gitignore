@@ -3,6 +3,8 @@
 [Oo]bj/
 [Pp]ublish/
 [Tt]est[Rr]esults/
+artifacts/
+models/
 
 # Visual Studio & IDE files
 .vs/
