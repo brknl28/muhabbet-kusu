@@ -97,7 +97,7 @@ public sealed partial class MainWindow : Window
 
             _bridge = new PythonEmaBridge(_pythonExe, bridgePath);
             var reply = await _bridge.StartAsync();
-            _idleStatusText = $"Hazır · Python: {_pythonExe} · Aygıt: {reply.Device ?? "bilinmiyor"} · Modeller: EMA Lightning, Antalia-2 Mini";
+            _idleStatusText = $"Hazır · Aygıt: {reply.Device ?? "bilinmiyor"} · Modeller: EMA Lightning, Antalia-2 Mini";
             StatusText.Text = _idleStatusText;
         }
         catch (Exception ex)
@@ -212,7 +212,7 @@ public sealed partial class MainWindow : Window
                 _suppressSelectionResultUpdate = false;
             }
 
-            ResultText.Text = $"Hazır · {reply.Duration:0.00} sn · {reply.SampleRate} Hz · seed {reply.Seed} · {Path.GetFileName(output)}";
+            ResultText.Text = $"Hazır · {reply.Duration:0.00} sn · {reply.SampleRate} Hz · seed {reply.Seed}";
             PlayButton.IsEnabled = StopButton.IsEnabled = SaveWavButton.IsEnabled = SaveMp3Button.IsEnabled = true;
         }
         catch (Exception ex)
@@ -282,7 +282,7 @@ public sealed partial class MainWindow : Window
             _currentWav = item.FilePath;
             if (!_suppressSelectionResultUpdate)
             {
-                ResultText.Text = $"Seçildi · {item.Name}";
+                ResultText.Text = "Ses seçildi.";
             }
         }
         UpdatePlaybackButtons();
@@ -353,7 +353,7 @@ public sealed partial class MainWindow : Window
                 {
                     File.Copy(_currentWav, file.Path, overwrite: true);
                 }
-                ResultText.Text = $"WAV kaydedildi · {file.Name}";
+                ResultText.Text = "WAV kaydedildi.";
             }
         }
         catch (Exception ex)
@@ -407,7 +407,7 @@ public sealed partial class MainWindow : Window
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(error);
 
-            ResultText.Text = $"MP3 kaydedildi · {file.Name}";
+            ResultText.Text = "MP3 kaydedildi.";
         }
         catch (Exception ex)
         {
