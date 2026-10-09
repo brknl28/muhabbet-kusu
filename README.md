@@ -1,26 +1,33 @@
 # Muhabbet Kuşu
 
-Türkçe metinden sese dönüştürme (TTS) masaüstü uygulaması.
+Windows için yerel Türkçe metinden sese uygulaması. WinUI 3 arayüzü, **EMA Lightning** ve **Antalia-2 Mini** modellerini tek çalışma alanında sunar.
 
-Bu uygulama iki yerel Türkçe ses modelini destekler:
-- **EMA Lightning**
-- **Antalia-2 Mini**
+- Sekmelerden model seçimi ve Windows temasına uyumlu arayüz.
+- Hız, örnekleme ve seed ayarları; Antalia için adım, CFG ve EQ kontrolleri.
+- Üretim ilerlemesi, ses galerisi, oynatma ve WAV/MP3 dışa aktarma.
 
-> **Not (Modeller Hakkında):** Model ağırlıkları doğrudan proje deposunun içinde yer almaz. İlk çalıştırmada Python kütüphaneleri (`ema-lightning` ve `antalia-mini`) aracılığıyla Hugging Face üzerinden otomatik olarak indirilir ve yerel bilgisayarınızda önbelleğe alınır. Sonraki kullanımlar tamamen çevrimdışı ve yerel çalışır.
+## Ekran Görüntüleri
 
-## Hızlı Başlangıç
+**EMA Lightning**
 
-1. Gerekli Python paketlerini kurun:
+![EMA Lightning çalışma alanı](docs/screenshots/ema-lightning.png)
+
+**Antalia-2 Mini**
+
+![Antalia-2 Mini ve özel ayarları](docs/screenshots/antalia-mini.png)
+
+## Kurulum
+
+Windows 10/11 (x64), .NET 8 SDK ve PATH üzerinde Python gerekir. MP3 dışa aktarma için FFmpeg de PATH üzerinde bulunmalıdır.
+
 ```powershell
-pip install ema-lightning antalia-mini
-```
-
-2. Uygulamayı derleyin ve çalıştırın:
-```powershell
+python -m pip install ema-lightning antalia-mini
 .\build.ps1
 .\run.ps1
 ```
 
+İlk çalıştırmada model ağırlıkları indirilir. İndirme tamamlandıktan sonra ses üretimi yerel çalışır. Üretilen dosyalar `outputs/` klasörüne kaydedilir. Publish çıktısı Windows App Runtime dosyalarını içerir; ayrı runtime paketi kurulumu gerekmez.
+
 ## Lisans
 
-Bu proje **MIT Lisansı** ile lisanslanmıştır. Kullanılan TTS modelleri ve kütüphaneleri kendi açık kaynak lisanslarına (Apache-2.0 / BSD) tabidir.
+Uygulama [MIT](LICENSE) lisansı ile sunulur. Modeller ve bağımlılıklar kendi lisanslarına tabidir.

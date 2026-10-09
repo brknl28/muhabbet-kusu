@@ -545,8 +545,79 @@ public class MuhabbetKusuTests
         Assert.Equal(8000, MainForm.ParseSampleRate("8k"));
         Assert.Equal(48000, MainForm.ParseSampleRate("48000 Hz"));
         Assert.Equal(24000, MainForm.ParseSampleRate("24000 hz"));
-        Assert.Equal(48000, MainForm.ParseSampleRate("invalid_value"));
-        Assert.Equal(48000, MainForm.ParseSampleRate(null));
+        Assert.Equal(24000, MainForm.ParseSampleRate("24khz"));
+        Assert.Equal(24000, MainForm.ParseSampleRate("24 kHz"));
+        Assert.Equal(48000, AudioParameters.ParseSampleRate("48000 Hz"));
+        Assert.Equal(24000, AudioParameters.ParseSampleRate("24khz"));
+        Assert.Equal(24000, AudioParameters.ParseSampleRate("24 kHz"));
+        Assert.Equal(48000, AudioParameters.ParseSampleRate(null));
+
+        // Speed normalization & boundaries
+        Assert.Equal(1.00m, AudioParameters.NormalizeSpeed(double.NaN, isAntalia: false));
+        Assert.Equal(0.95m, AudioParameters.NormalizeSpeed(double.NaN, isAntalia: true));
+        Assert.Equal(0.25m, AudioParameters.NormalizeSpeed(0.10, isAntalia: false));
+        Assert.Equal(4.00m, AudioParameters.NormalizeSpeed(5.00, isAntalia: false));
+
+        // CFG normalization & boundaries
+        Assert.Equal(2.0, AudioParameters.NormalizeCfg(double.NaN));
+        Assert.Equal(0.5, AudioParameters.NormalizeCfg(0.1));
+        Assert.Equal(10.0, AudioParameters.NormalizeCfg(12.0));
+
+        // Seed normalization
+        Assert.Null(AudioParameters.NormalizeSeed(isFixedSeed: false, 1234));
+        Assert.Equal(0, AudioParameters.NormalizeSeed(isFixedSeed: true, double.NaN));
+        Assert.Equal(0, AudioParameters.NormalizeSeed(isFixedSeed: true, -5));
+        Assert.Equal(0, AudioParameters.NormalizeSeed(isFixedSeed: true, 0));
+        Assert.Equal(1234, AudioParameters.NormalizeSeed(isFixedSeed: true, 1234));
+        Assert.Equal(long.MaxValue, AudioParameters.NormalizeSeed(isFixedSeed: true, double.MaxValue));
+        Assert.Equal(long.MaxValue, AudioParameters.NormalizeSeed(isFixedSeed: true, 1e25));
+
+        // Sample rate non-positive handling
+        Assert.Equal(48000, AudioParameters.ParseSampleRate("0"));
+        Assert.Equal(48000, AudioParameters.ParseSampleRate("-48000"));
+        Assert.Equal(48000, AudioParameters.ParseSampleRate("0 hz"));
+        Assert.Equal(48000, AudioParameters.ParseSampleRate("0k"));
+
+        // Steps parsing
+        Assert.Equal(4, AudioParameters.ParseSteps("4"));
+        Assert.Equal(8, AudioParameters.ParseSteps(null));
+        Assert.Equal(8, AudioParameters.ParseSteps("invalid"));
+        Assert.Equal(8, AudioParameters.ParseSteps("0"));
+        Assert.Equal(8, AudioParameters.ParseSteps("-1"));
+
+        // Fractional kHz parsing
+        Assert.Equal(22050, AudioParameters.ParseSampleRate("22.05k"));
+        Assert.Equal(22050, AudioParameters.ParseSampleRate("22.05 kHz"));
+        Assert.Equal(44100, AudioParameters.ParseSampleRate("44.1k"));
+        Assert.Equal(44100, AudioParameters.ParseSampleRate("44.1 kHz"));
+
+        // Culture invariance test (e.g. Turkish and German locales where dot is thousands separator)
+        var origCulture = System.Threading.Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            foreach (var cultureName in new[] { "tr-TR", "de-DE", "en-US" })
+            {
+                var culture = System.Globalization.CultureInfo.GetCultureInfo(cultureName);
+                System.Threading.Thread.CurrentThread.CurrentCulture = culture;
+
+                Assert.Equal(22050, AudioParameters.ParseSampleRate("22.05k"));
+                Assert.Equal(22050, AudioParameters.ParseSampleRate("22.05 kHz"));
+                Assert.Equal(44100, AudioParameters.ParseSampleRate("44.1k"));
+                Assert.Equal(44100, AudioParameters.ParseSampleRate("44.1 kHz"));
+                Assert.Equal(48000, AudioParameters.ParseSampleRate("48000"));
+                Assert.Equal(8, AudioParameters.ParseSteps("8"));
+            }
+        }
+        finally
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = origCulture;
+        }
+
+        // SuggestedFileName tests (extension-free for WinRT FileSavePicker)
+        Assert.Equal("muhabbet_ema", AudioParameters.GetSuggestedFileName(@"C:\outputs\muhabbet_ema.wav"));
+        Assert.Equal("speech", AudioParameters.GetSuggestedFileName("speech.mp3"));
+        Assert.Equal("muhabbet_ses", AudioParameters.GetSuggestedFileName(null));
+        Assert.Equal("muhabbet_ses", AudioParameters.GetSuggestedFileName("   "));
     }
 
     [Fact]

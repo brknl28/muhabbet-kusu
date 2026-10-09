@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>Muhabbet Kuşu</title>
+  <rect x="0" y="0" width="256" height="256" fill="#F8CE46"/>
+  <ellipse cx="128" cy="222" rx="69" ry="9" fill="#E6B537"/>
+  <polygon points="103,159 89,221 126,201 140,163" fill="#176C65"/>
+  <ellipse cx="130" cy="146" rx="48" ry="62" fill="#329D7C"/>
+  <ellipse cx="113" cy="153" rx="26" ry="42" fill="#20796C"/>
+  <ellipse cx="120" cy="144" rx="15" ry="29" fill="#54B58B"/>
+  <ellipse cx="141" cy="87" rx="43" ry="44" fill="#A9CE68"/>
+  <ellipse cx="158" cy="87" rx="29" ry="35" fill="#FFF2A1"/>
+  <polygon points="178,91 198,103 176,114" fill="#C57932"/>
+  <circle cx="165" cy="80" r="7" fill="#193E3B"/>
+  <circle cx="167" cy="78" r="2" fill="#FFFFFF"/>
+  <circle cx="153" cy="106" r="6" fill="#468BBC"/>
+  <circle cx="143" cy="116" r="3" fill="#193E3B"/>
+  <circle cx="154" cy="122" r="3" fill="#193E3B"/>
+  <line x1="121" y1="199" x2="118" y2="215" stroke="#725130" stroke-width="5" stroke-linecap="round"/>
+  <line x1="144" y1="199" x2="147" y2="215" stroke="#725130" stroke-width="5" stroke-linecap="round"/>
+  <line x1="77" y1="216" x2="184" y2="216" stroke="#725130" stroke-width="7" stroke-linecap="round"/>
+</svg>

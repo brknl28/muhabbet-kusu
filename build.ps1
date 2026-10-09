@@ -13,8 +13,7 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 
 python -c "import ema_lightning, antalia_mini; print('ema-lightning and antalia-mini OK')"
 
-dotnet restore .\MuhabbetKusu.csproj
-dotnet publish .\MuhabbetKusu.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -o .\publish
+dotnet publish .\MuhabbetKusu.csproj -c Release -r win-x64 -f net8.0-windows10.0.19041.0 -p:WindowsAppSDKSelfContained=true --self-contained false -p:PublishSingleFile=false -o .\publish
 
 Write-Host ''
 Write-Host 'Hazır:' -ForegroundColor Green

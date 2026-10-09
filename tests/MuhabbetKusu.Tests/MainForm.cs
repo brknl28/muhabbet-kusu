@@ -872,25 +872,7 @@ public sealed class MainForm : Form
         }
     }
 
-    internal static int ParseSampleRate(object? item)
-    {
-        if (item is string s)
-        {
-            s = s.Trim().ToLowerInvariant();
-            if (s.EndsWith("k"))
-            {
-                if (double.TryParse(s[..^1], out var kVal))
-                    return (int)(kVal * 1000);
-            }
-            if (s.EndsWith("hz"))
-            {
-                s = s[..^2].Trim();
-            }
-            if (int.TryParse(s, out var val))
-                return val;
-        }
-        return 48000;
-    }
+    internal static int ParseSampleRate(object? item) => AudioParameters.ParseSampleRate(item);
 
     private void UpdateCharCount() => _charCount.Text = $"{_text.TextLength:N0} karakter";
 
