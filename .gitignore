@@ -1,0 +1,30 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+[Tt]est[Rr]esults/
+
+# Visual Studio & IDE files
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+
+# Generated audio outputs
+outputs/
+*.wav
+*.mp3
+
+# Python build & cache artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+
+# Agent task tracking data
+.agents/
