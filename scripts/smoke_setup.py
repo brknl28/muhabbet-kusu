@@ -11,11 +11,14 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
+    parser.add_argument("--models-dir", type=Path)
+    parser.add_argument("--stt", action="store_true")
     args = parser.parse_args()
     root = args.root.resolve()
+    models = (args.models_dir or root / "models").resolve()
     python = root / "runtime" / "python" / "python.exe"
     environment = os.environ.copy()
-    environment.update({"PATH": str(Path(os.environ["SystemRoot"]) / "System32"), "HF_HUB_OFFLINE": "1", "PYTHONNOUSERSITE": "1", "MUHABBET_MODELS_DIR": str(root / "models")})
+    environment.update({"PATH": str(Path(os.environ["SystemRoot"]) / "System32"), "HF_HUB_OFFLINE": "1", "PYTHONNOUSERSITE": "1", "MUHABBET_MODELS_DIR": str(models), "PYTHONIOENCODING": "utf-8"})
     environment.pop("PYTHONHOME", None)
     environment.pop("PYTHONPATH", None)
     subprocess.run([str(python), "-I", "-c", "import sys,torch,ema_lightning,antalia_mini; print(sys.executable); print(torch.__file__)"], env=environment, check=True)
@@ -55,6 +58,20 @@ def main():
             process.stdin.flush()
             process.wait(timeout=10)
             assert process.returncode == 0
+            timeout.cancel()
+            if args.stt:
+                results["stt"] = {}
+                for model in ("mihu", "uran"):
+                    run = subprocess.run([str(python), "-I", "-X", "utf8", str(root / "bridge" / "stt_bridge.py"), str(output), "--model", model,
+                        "--models-dir", str(models), "--packages", str(root / "runtime" / "stt-packages"),
+                        "--ffmpeg", str(root / "runtime" / "ffmpeg" / "ffmpeg.exe")],
+                        env=environment, capture_output=True, text=True, encoding="utf-8", timeout=180)
+                    if run.returncode != 0:
+                        raise RuntimeError(model + ": " + run.stderr)
+                    replies = [json.loads(line) for line in run.stdout.splitlines() if line.strip()]
+                    transcript = next(reply for reply in replies if reply.get("status") == "transcribed")
+                    assert transcript.get("ok") and transcript.get("text", "").strip(), transcript
+                    results["stt"][model] = {"text": transcript["text"], "elapsed": transcript["elapsed"]}
             (root / "smoke-results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
             print(json.dumps(results))
         finally:

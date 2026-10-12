@@ -29,3 +29,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\test-clean-windows.ps1 -Re
 Test kurulum, model indirme, iki model ile çevrimdışı WAV üretimi, MP3 dönüşümü, pencere açılması ve kaldırma işlemini kontrol eder. `report.json` sonucu kaydeder. Testi geliştirme bilgisayarında çalıştırmayın. Gerçek ağ kesintisi, ilk açılış indirme akışı, görsel kontrol ve standart kullanıcı hesabı ayrıca sınanmalıdır.
 
 Hazırlanmış test paketi, tamamlanmış temiz Windows testi değildir. Sonuç raporunda `passed: true` görülmeden dağıtımı doğrulanmış olarak işaretlemeyin.
+
+## Yerel paket kontrolü
+
+Kurulan paketin kendi Python dosyası ile dört modeli ve MP3 dönüşümünü sınayın:
+
+```powershell
+<kurulum>\runtime\python\python.exe -I scripts\smoke_setup.py <kurulum> --models-dir <model-önbelleği> --stt
+```
+
+Bu komut model indirmez. Hazır önbelleği çevrimdışı kullanır. Sonuç `smoke-results.json` dosyasına yazılır. Geliştirme bilgisayarındaki başarılı sonuç, temiz Windows testi yerine geçmez.
