@@ -22,8 +22,6 @@ Açık kaynaklı ve topluluk lisanslı Türkçe modeller:
 
 TTS modelleri kurulum sırasında veya ilk açılışta indirilir. STT modelleri ilk kullanımda indirilir. Modeller uygulamanın `models/` klasöründe tutulur. Mikrofon ilk kullanımda izin ister. mihu modeli ayrıca kendi lisansının kabulünü ister.
 
-Paket dijital imzalı değildir; Windows güvenlik uyarısı gösterebilir. Temiz Windows ortamı testi henüz tamamlanmadı.
-
 ## Ekran Görüntüleri
 
 **EMA Lightning**
