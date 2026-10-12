@@ -1,6 +1,6 @@
 # Muhabbet Kuşu
 
-Windows için yerel Türkçe ses uygulaması. **EMA Lightning** ve **Antalia-2 Mini** ile metinden sese; **mihu Turkish STT** ve **Uran STT Base** ile sesten metne dönüştürme sağlar.
+Windows için yerel Türkçe ses uygulaması. **[EMA Lightning](https://huggingface.co/canberkkkkkk/ema-lightning)** ve **[Antalia-2 Mini](https://huggingface.co/cloud0day3/antalia-mini)** ile metinden sese; **[mihu Turkish STT](https://huggingface.co/mihuai/turkish-stt)** ve **[Uran STT Base](https://huggingface.co/curiositytech/uran-stt-base)** ile sesten metne dönüştürme sağlar.
 
 - Windows temasına uyumlu WinUI 3 arayüzü ve model sekmeleri.
 - Mikrofon kaydı, ses dosyası seçimi ve yerel metne dönüştürme.
