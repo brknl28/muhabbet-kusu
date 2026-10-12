@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -35,6 +36,19 @@ public sealed partial class MainWindow : Window
     private int _lastGeneratedModel = -1;
     private string? _lastGeneratedWav;
     private bool _hasGeneratedAudio;
+    private bool _sttActive;
+    private string _ttsInput = string.Empty;
+    private string _sttTranscript = string.Empty;
+    private string? _selectedAudio;
+    private string? _lastTranscribedAudio;
+    private DateTime _lastTranscribedWriteTime;
+    private int _lastTranscribedModel = -1;
+    private Process? _sttProcess;
+    private MicrophoneRecorder? _microphone;
+    private string? _recordingFile;
+    private bool _recording;
+    private DispatcherTimer? _recordingTimer;
+    private DateTime _recordingStarted;
     private string _idleStatusText = "Muhabbet Kuşu başlatılıyor…";
     private readonly ObservableCollection<GalleryItem> _galleryItems = new();
 
@@ -67,6 +81,9 @@ public sealed partial class MainWindow : Window
             try
             {
                 _mediaPlayer?.Dispose();
+                _microphone?.Dispose();
+                _recordingTimer?.Stop();
+                if (_sttProcess is { HasExited: false }) _sttProcess.Kill(entireProcessTree: true);
                 _bridge?.Dispose();
             }
             catch { }
@@ -134,6 +151,26 @@ public sealed partial class MainWindow : Window
     {
         if (AntaliaSettingsPanel == null) return;
 
+        if (_uiReady)
+        {
+            bool nextStt = ModelSelector.SelectedIndex >= 2;
+            if (nextStt != _sttActive)
+            {
+                if (nextStt) _ttsInput = InputTextBox.Text;
+                else _sttTranscript = InputTextBox.Text;
+                _sttActive = nextStt;
+                InputTextBox.Text = nextStt ? _sttTranscript : _ttsInput;
+            }
+            InputTextBox.IsReadOnly = nextStt;
+            InputTextBox.PlaceholderText = nextStt ? "Ses dosyasını seçin ve Metne Dönüştür düğmesine basın." : "Seslendirmek istediğiniz Türkçe metni buraya yazın…";
+            SttFilePanel.Visibility = nextStt ? Visibility.Visible : Visibility.Collapsed;
+            Grid.SetColumn(StatusProgressPanel, nextStt ? 1 : 0);
+            Grid.SetColumnSpan(StatusProgressPanel, nextStt ? 1 : 2);
+            ParametersCard.Visibility = nextStt ? Visibility.Collapsed : Visibility.Visible;
+            SaveMp3Button.Visibility = nextStt ? Visibility.Collapsed : Visibility.Visible;
+            GenerateButton.Content = nextStt ? "Metne Dönüştür" : "▶  Ses Oluştur";
+        }
+
         bool isAntalia = ModelSelector.SelectedIndex == 1;
         AntaliaSettingsPanel.Visibility = isAntalia ? Visibility.Visible : Visibility.Collapsed;
         Grid.SetColumnSpan(CommonParametersPanel, isAntalia ? 1 : 2);
@@ -160,6 +197,12 @@ public sealed partial class MainWindow : Window
     {
         int length = InputTextBox.Text?.Length ?? 0;
         CharCountText.Text = $"{length:N0} Karakter";
+        if (_sttActive)
+        {
+            EstimatedSizeText.Text = ModelSelector.SelectedIndex == 2 ? "Powered by mihu" : "Uran STT Base · Curiosity Technology";
+            ToolTipService.SetToolTip(EstimatedSizeText, ModelSelector.SelectedIndex == 2 ? "mihu Community License" : "Apache License 2.0");
+            return;
+        }
         double speed = (double)AudioParameters.NormalizeSpeed(SpeedBox.Value, ModelSelector.SelectedIndex == 1);
         double estimatedSeconds = length / (14.0 * speed);
         double estimatedKb = (44 + estimatedSeconds * ParseSampleRate(SampleRateBox.SelectedItem) * 2) / 1024;
@@ -172,9 +215,260 @@ public sealed partial class MainWindow : Window
         SeedBox.IsEnabled = FixedSeedCheckBox.IsChecked == true;
     }
 
+    private void ChooseAudioButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy || _recording) return;
+        try
+        {
+        var path = AudioFilePicker.Pick(WinRT.Interop.WindowNative.GetWindowHandle(this), GetOutputsDirectory());
+        if (path == null) return;
+        _selectedAudio = path;
+        SttFileText.Text = Path.GetFileName(path);
+        UpdatePlaybackButtons();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+            StatusText.Text = "Dosya seçim penceresi açılamadı. Yeniden deneyin.";
+        }
+    }
+
+    private void TranscribeGalleryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy || _recording || GalleryListView.SelectedItem is not GalleryItem item) return;
+        if (ModelSelector.SelectedIndex < 2) ModelSelector.SelectedIndex = 2;
+        _selectedAudio = item.FilePath;
+        SttFileText.Text = item.Name;
+        UpdatePlaybackButtons();
+    }
+
+    private async void RecordAudioButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy) return;
+        RecordAudioButton.IsEnabled = false;
+        try
+        {
+            if (_recording)
+            {
+                await _microphone!.StopAsync();
+                _recording = false;
+                _selectedAudio = _recordingFile!;
+                SttFileText.Text = Path.GetFileName(_recordingFile);
+                _microphone.Dispose();
+                _microphone = null;
+                StatusText.Text = "Kayıt Hazır.";
+                RefreshGallery(_selectedAudio);
+            }
+            else
+            {
+                if (!await EnsureMicrophonePermissionAsync()) return;
+                _microphone = new MicrophoneRecorder();
+                var recordingModel = ModelSelector.SelectedIndex == 3 ? "uran-stt" : "turkish-stt";
+                _recordingFile = Path.Combine(GetOutputsDirectory(), $"{recordingModel}_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString()[..4]}.wav");
+                _microphone.Start(_recordingFile);
+                _recording = true;
+                _recordingStarted = DateTime.UtcNow;
+                _recordingTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+                _recordingTimer.Tick -= RecordingTimer_Tick;
+                _recordingTimer.Tick += RecordingTimer_Tick;
+                RecordingTimeText.Text = "Kayıt Sürüyor · 0:00";
+                _recordingTimer.Start();
+                StatusText.Text = "● Mikrofon Kaydı Sürüyor";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+            _recording = false;
+            _microphone?.Dispose();
+            _microphone = null;
+            StatusText.Text = ex is InvalidOperationException ? ex.Message : "Mikrofon kaydı başlatılamadı veya tamamlanamadı.";
+            var errorDialog = new ContentDialog
+            {
+                XamlRoot = Content.XamlRoot, Title = "Mikrofon Kaydı Tamamlanamadı",
+                Content = "Mikrofonun bağlı ve kullanılabilir olduğunu kontrol edin. Windows ayarlarında masaüstü uygulamalarına mikrofon erişimi verilmiş olmalıdır.",
+                PrimaryButtonText = "Mikrofon Ayarlarını Aç", CloseButtonText = "Kapat", DefaultButton = ContentDialogButton.Close
+            };
+            if (await errorDialog.ShowAsync() == ContentDialogResult.Primary)
+                await Launcher.LaunchUriAsync(new Uri("ms-settings:privacy-microphone"));
+        }
+        finally
+        {
+            RecordAudioIcon.Glyph = _recording ? "\uE71A" : "\uE720";
+            RecordingIndicator.Visibility = _recording ? Visibility.Visible : Visibility.Collapsed;
+            SttFileText.Visibility = _recording ? Visibility.Collapsed : Visibility.Visible;
+            if (_recording)
+            {
+                RecordAudioButton.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 185, 28, 28));
+                RecordAudioButton.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+            }
+            else
+            {
+                RecordAudioButton.ClearValue(Control.BackgroundProperty);
+                RecordAudioButton.ClearValue(Control.ForegroundProperty);
+            }
+            if (!_recording) _recordingTimer?.Stop();
+            var recordAction = _recording ? "Kaydı Bitir" : "Mikrofon Kaydı";
+            ToolTipService.SetToolTip(RecordAudioButton, recordAction);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(RecordAudioButton, recordAction);
+            RecordAudioButton.IsEnabled = true;
+            ModelSelector.IsEnabled = !_recording;
+            ChooseAudioButton.IsEnabled = !_recording;
+            UpdatePlaybackButtons();
+        }
+    }
+
+    private void RecordingTimer_Tick(object? sender, object e)
+    {
+        var elapsed = DateTime.UtcNow - _recordingStarted;
+        RecordingTimeText.Text = $"Kayıt Sürüyor · {FormatPlaybackTime(elapsed)}";
+    }
+
+    private async Task<bool> EnsureMicrophonePermissionAsync()
+    {
+        var consentFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MuhabbetKusu", "microphone-consent.txt");
+        if (!File.Exists(consentFile))
+        {
+            var consent = new ContentDialog
+            {
+                XamlRoot = Content.XamlRoot, Title = "Mikrofon Kullanımına İzin Verilsin Mi?",
+                Content = "Mikrofon yalnızca kayıt düğmesine bastığınızda kullanılır. Kayıt bilgisayarınızda saklanır ve yerel olarak metne dönüştürülür.",
+                PrimaryButtonText = "İzin Ver", CloseButtonText = "Vazgeç", DefaultButton = ContentDialogButton.Close
+            };
+            if (await consent.ShowAsync() != ContentDialogResult.Primary) return false;
+            Directory.CreateDirectory(Path.GetDirectoryName(consentFile)!);
+            await File.WriteAllTextAsync(consentFile, "allowed");
+        }
+        var access = Windows.Devices.Enumeration.DeviceAccessInformation.CreateFromDeviceClass(
+            Windows.Devices.Enumeration.DeviceClass.AudioCapture).CurrentStatus;
+        if (access is Windows.Devices.Enumeration.DeviceAccessStatus.DeniedByUser or
+            Windows.Devices.Enumeration.DeviceAccessStatus.DeniedBySystem)
+        {
+            await ShowMicrophoneSettingsAsync();
+            return false;
+        }
+        return true;
+    }
+
+    private async void LicensesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var noticePath = Path.Combine(AppContext.BaseDirectory, "THIRD_PARTY_NOTICES.txt");
+        var text = File.Exists(noticePath) ? await File.ReadAllTextAsync(noticePath) : "Lisans dosyası bulunamadı.";
+        await new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot, Title = "Lisanslar",
+            Content = new ScrollViewer { MaxHeight = 420, Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap } },
+            CloseButtonText = "Kapat"
+        }.ShowAsync();
+    }
+
+    private async Task<bool> EnsureMihuLicenseAsync()
+    {
+        var consent = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MuhabbetKusu", "mihu-license-v1.accepted");
+        if (File.Exists(consent)) return true;
+        var license = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Assets", "mihu-NOTICE.txt"));
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot, Title = "mihu Community License",
+            Content = new ScrollViewer { MaxHeight = 400, Content = new TextBlock { Text = license, TextWrapping = TextWrapping.Wrap } },
+            PrimaryButtonText = "Kabul Et", CloseButtonText = "Vazgeç", DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return false;
+        Directory.CreateDirectory(Path.GetDirectoryName(consent)!);
+        await File.WriteAllTextAsync(consent, "Accepted " + DateTime.UtcNow.ToString("O"));
+        return true;
+    }
+
+    private async Task ShowMicrophoneSettingsAsync()
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot, Title = "Mikrofon Erişimi Kapalı",
+            Content = "Windows ayarlarında mikrofon erişimini ve masaüstü uygulamalarının mikrofon erişimini açın. Ardından Mikrofon Kaydı düğmesine yeniden basın.",
+            PrimaryButtonText = "Ayarları Aç", CloseButtonText = "Kapat", DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            await Launcher.LaunchUriAsync(new Uri("ms-settings:privacy-microphone"));
+    }
+
+    private async Task TranscribeSelectedAudioAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedAudio) || !File.Exists(_selectedAudio)) return;
+        if (ModelSelector.SelectedIndex == 2 && !await EnsureMihuLicenseAsync()) return;
+        SetBusy(true, "STT modeli hazırlanıyor…");
+        ProgressPanel.Visibility = Visibility.Visible;
+        SynthesisProgressBar.IsIndeterminate = true;
+        ProgressPercentText.Visibility = Visibility.Collapsed;
+        using var timeout = new System.Threading.CancellationTokenSource(TimeSpan.FromMinutes(10));
+        Process? process = null;
+        try
+        {
+            var info = new ProcessStartInfo(FindPython())
+            {
+                UseShellExecute = false, CreateNoWindow = true,
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8,
+                WorkingDirectory = AppContext.BaseDirectory
+            };
+            info.ArgumentList.Add("-u");
+            info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "bridge", "stt_bridge.py"));
+            info.ArgumentList.Add(_selectedAudio);
+            info.ArgumentList.Add("--model");
+            info.ArgumentList.Add(ModelSelector.SelectedIndex == 3 ? "uran" : "mihu");
+            info.ArgumentList.Add("--models-dir");
+            info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "models"));
+            info.ArgumentList.Add("--packages");
+            info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "runtime", "stt-packages"));
+            var ffmpeg = Path.Combine(AppContext.BaseDirectory, "runtime", "ffmpeg", "ffmpeg.exe");
+            if (!File.Exists(ffmpeg)) ffmpeg = FindOnPath("ffmpeg.exe");
+            if (ffmpeg != null && File.Exists(ffmpeg)) { info.ArgumentList.Add("--ffmpeg"); info.ArgumentList.Add(ffmpeg); }
+            info.Environment["PYTHONIOENCODING"] = "utf-8";
+            info.Environment["PYTHONNOUSERSITE"] = "1";
+            process = Process.Start(info) ?? throw new InvalidOperationException("STT başlatılamadı.");
+            _sttProcess = process;
+            var errors = process.StandardError.ReadToEndAsync();
+            string? transcript = null;
+            while (await process.StandardOutput.ReadLineAsync(timeout.Token) is { } line)
+            {
+                using var json = JsonDocument.Parse(line);
+                var result = json.RootElement;
+                if (result.TryGetProperty("message", out var message)) StatusText.Text = message.GetString();
+                if (result.TryGetProperty("text", out var text)) transcript = text.GetString();
+            }
+            await process.WaitForExitAsync(timeout.Token);
+            var stderr = await errors;
+            if (process.ExitCode != 0 || transcript == null)
+            {
+                Debug.WriteLine(stderr);
+                throw new InvalidOperationException("Ses metne dönüştürülemedi. Dosya biçimini ve internet bağlantısını kontrol edin.");
+            }
+            _sttTranscript = transcript;
+            InputTextBox.Text = transcript;
+            _lastTranscribedAudio = _selectedAudio;
+            _lastTranscribedWriteTime = File.GetLastWriteTimeUtc(_selectedAudio);
+            _lastTranscribedModel = ModelSelector.SelectedIndex;
+            _idleStatusText = string.IsNullOrWhiteSpace(transcript) ? "Bu kayıtta konuşma algılanmadı." : "Metne dönüştürme tamamlandı.";
+        }
+        catch (Exception ex) { _idleStatusText = ex is OperationCanceledException ? "STT işlemi zaman aşımına uğradı." : ex.Message; }
+        finally
+        {
+            if (process is { HasExited: false }) process.Kill(entireProcessTree: true);
+            _sttProcess = null;
+            process?.Dispose();
+            SynthesisProgressBar.IsIndeterminate = false;
+            ProgressPanel.Visibility = Visibility.Collapsed;
+            ProgressPercentText.Visibility = Visibility.Visible;
+            SetBusy(false);
+        }
+    }
+
     private async void GenerateButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isBusy) return;
+        if (_sttActive) { await TranscribeSelectedAudioAsync(); return; }
 
         var input = InputTextBox.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(input))
@@ -192,7 +486,7 @@ public sealed partial class MainWindow : Window
         var outputsDir = GetOutputsDirectory();
         bool isAntalia = ModelSelector.SelectedIndex == 1;
         string modelName = isAntalia ? "antalia" : "ema";
-        string fileName = $"muhabbet_{modelName}_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString()[..4]}.wav";
+        string fileName = $"{modelName}_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString()[..4]}.wav";
         string output = Path.Combine(outputsDir, fileName);
 
         SetBusy(true, "Ses oluşturuluyor…");
@@ -440,6 +734,8 @@ public sealed partial class MainWindow : Window
         savePicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Downloads;
         savePicker.FileTypeChoices.Add("MP3 ses dosyası", new List<string> { ".mp3" });
         savePicker.SuggestedFileName = AudioParameters.GetSuggestedFileName(_currentWav);
+        if (savePicker.SuggestedFileName.StartsWith("muhabbet_", StringComparison.OrdinalIgnoreCase))
+            savePicker.SuggestedFileName = savePicker.SuggestedFileName[9..];
 
         var file = await savePicker.PickSaveFileAsync();
         if (file == null) return;
@@ -553,11 +849,15 @@ public sealed partial class MainWindow : Window
         LoadSelectedAudio();
         PlaybackButton.IsEnabled = hasCurrentWav;
         DeleteGalleryButton.IsEnabled = !_isBusy && GalleryListView.SelectedItem is GalleryItem selected && File.Exists(selected.FilePath);
+        TranscribeGalleryButton.IsEnabled = !_isBusy && !_recording && GalleryListView.SelectedItem is GalleryItem audio && File.Exists(audio.FilePath);
         SaveMp3Button.IsEnabled = !_isBusy && _hasGeneratedAudio && hasCurrentWav;
         bool matchesLastGeneration = _lastGeneratedModel == ModelSelector.SelectedIndex &&
             string.Equals(_lastGeneratedText, InputTextBox.Text?.Trim(), StringComparison.Ordinal) &&
             !string.IsNullOrEmpty(_lastGeneratedWav) && File.Exists(_lastGeneratedWav);
         GenerateButton.IsEnabled = !_isBusy && !matchesLastGeneration && !string.IsNullOrWhiteSpace(InputTextBox.Text);
+        if (_sttActive)
+            GenerateButton.IsEnabled = !_isBusy && !_recording && !string.IsNullOrEmpty(_selectedAudio) && File.Exists(_selectedAudio) &&
+                (_lastTranscribedModel != ModelSelector.SelectedIndex || _lastTranscribedAudio != _selectedAudio || _lastTranscribedWriteTime != File.GetLastWriteTimeUtc(_selectedAudio));
     }
 
     private void SetBusy(bool busy, string? message = null)
@@ -565,6 +865,8 @@ public sealed partial class MainWindow : Window
         _isBusy = busy;
         ModelSelector.IsEnabled = !busy;
         InputTextBox.IsEnabled = !busy;
+        ChooseAudioButton.IsEnabled = !busy;
+        RecordAudioButton.IsEnabled = !busy;
         SpeedBox.IsEnabled = !busy;
         SampleRateBox.IsEnabled = !busy;
         FixedSeedCheckBox.IsEnabled = !busy;

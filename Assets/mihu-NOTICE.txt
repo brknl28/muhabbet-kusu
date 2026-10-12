@@ -1,0 +1,79 @@
+mihu Community License
+Version 1.0
+
+These terms govern all use of the turkish-stt materials released by mihu
+("mihu", "Licensor"). By downloading, accessing, or otherwise using the Materials, you
+("Licensee") accept and agree to be bound by this License.
+
+1. DEFINITIONS
+   1.1 "Materials" — the turkish-stt model weights, model card, and any
+       accompanying code, documentation, or related artifacts released under this License.
+   1.2 "Outputs" — anything produced by running the Materials.
+   1.3 "Derivative" — any work created from, adapted from, or built upon the Materials.
+   1.4 "Annual Revenue" — the combined worldwide gross revenue of Licensee together with
+       its affiliates over the preceding twelve months.
+
+2. COMMUNITY GRANT
+   Provided Licensee's Annual Revenue stays below USD 500,000, and subject to every term
+   below, Licensor grants Licensee a worldwide, non-exclusive, non-transferable,
+   royalty-free, no-cost right to use, reproduce, and make Derivatives of the Materials.
+   This covers, without limitation:
+     (a) research and academic work;
+     (b) personal and other non-commercial use;
+     (c) commercial use within the revenue limit above, once any commercial-use
+         registration that Licensor requires has been completed.
+
+3. ABOVE THE THRESHOLD
+   Once Licensee's Annual Revenue reaches USD 500,000 or more, no use is permitted under
+   the Community Grant. Licensee must first secure a separate commercial agreement from
+   mihu. Write to support@mihu.ai to arrange terms.
+
+4. ATTRIBUTION
+   Licensee shall (a) keep this License intact, together with any copyright or attribution
+   notices, in a "NOTICE" file shipped alongside the Materials or any Derivative, and
+   (b) show "Powered by mihu" clearly in any product, service, interface, or documentation
+   that builds on the Materials or their Outputs.
+
+5. RESTRICTIONS
+   Licensee shall not:
+     (a) use the Materials or Outputs to train, build, or refine any competing speech,
+         foundational, or general-purpose AI model;
+     (b) strip, hide, or modify any attribution or proprietary notice;
+     (c) use the mihu name, logo, or marks beyond the attribution required in Section 4
+         (no trademark rights are granted here);
+     (d) use the Materials unlawfully or contrary to any Acceptable Use Policy that
+         Licensor may publish;
+     (e) sublicense, sell, or redistribute the Materials except where this License
+         expressly allows it.
+
+6. OWNERSHIP
+   Between the parties, Licensor keeps all right, title, and interest in the Materials.
+   Licensee holds the Derivatives it lawfully makes and the Outputs it generates, always
+   subject to Licensor's rights in the underlying Materials. Nothing beyond the rights
+   stated here is granted, by implication or otherwise.
+
+7. NO WARRANTY
+   THE MATERIALS ARE SUPPLIED "AS IS", WITH NO WARRANTY OF ANY KIND, WHETHER EXPRESS OR
+   IMPLIED, INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+   PURPOSE, OR NON-INFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+   TO THE FULLEST EXTENT THE LAW ALLOWS, LICENSOR IS NOT LIABLE FOR ANY INDIRECT,
+   INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR EXEMPLARY DAMAGES CONNECTED TO THE MATERIALS OR
+   THIS LICENSE.
+
+9. TERMINATION
+   This License ends automatically if (a) Licensee's Annual Revenue reaches or passes
+   USD 500,000 without a commercial agreement in place, (b) Licensee breaches any term, or
+   (c) Licensee brings litigation or a patent claim against Licensor over the Materials.
+   On termination, Licensee must stop all use and delete every copy of the Materials. To
+   keep using them, arrange a commercial agreement via support@mihu.ai.
+
+10. GENERAL
+   This License is the complete agreement covering the Materials. It is governed by the
+   laws of Licensor's principal place of business, disregarding conflict-of-law rules.
+
+© mihu. All rights reserved.
+
+turkish-stt and the mihu Community License are provided by Hunters AI, operating
+under the mihu brand. "mihu" is a trademark of Hunters AI.

@@ -1,0 +1,37 @@
+Muhabbet Kuşu
+Uygulama kaynak kodu: MIT. Üçüncü taraf bileşenler kendi lisanslarına tabidir.
+
+mihu Turkish STT — Powered by mihu
+Model ve mihu_stt paketi: mihu Community License v1.0.
+Tam metin: Assets/mihu-NOTICE.txt.
+Kaynak: https://huggingface.co/mihuai/turkish-stt
+Bu lisans, OSI onaylı açık kaynak lisansı değildir. Yıllık toplam ciro sınırı,
+ticari kullanım kayıt şartı, atıf, yeniden dağıtım ve rakip model eğitimi
+kısıtları vardır. İlk indirmede lisansın kabulü istenir.
+Model ağırlıkları setup'a eklenmez. Kullanıcı modeli kaynağından indirir.
+Bu indirme biçimi diğer lisans şartlarını kaldırmaz.
+
+Uran STT Base — Curiosity Technology
+Model kartında belirtilen lisans: Apache License 2.0.
+Tam metin: Assets/uran-LICENSE.txt.
+Kaynak: https://huggingface.co/curiositytech/uran-stt-base
+Model değiştirilmeden CPU üzerinde çalıştırılır. Model ağırlıkları ilk
+kullanımda indirilir. Upstream depoda ayrı bir NOTICE dosyası yoktur.
+
+Çalışma bileşenleri
+NAudio: MIT. https://github.com/naudio/NAudio
+Tam metin: Assets/NAudio-LICENSE.txt.
+Uran için Whisper-base tokenizer: OpenAI, MIT. Assets/whisper-LICENSE.txt.
+faster-whisper: MIT. https://github.com/SYSTRAN/faster-whisper
+CTranslate2: MIT. https://github.com/OpenNMT/CTranslate2
+sherpa-onnx: Apache-2.0. https://github.com/k2-fsa/sherpa-onnx
+Python, PyTorch, ONNX Runtime, NumPy ve diğer Python bileşenlerinin lisans
+metinleri runtime içindeki dist-info/licenses veya ilgili paket klasörlerinde
+bulunur. FFmpeg lisansı ve kaynak bağlantısı runtime/ffmpeg altında bulunur.
+EMA Lightning ve Antalia Mini kendi paket ve model lisanslarına tabidir.
+
+Dağıtım
+Model önbelleğini ve kullanıcı seslerini dağıtım paketine eklemeyin.
+Taşınabilir ZIP için scripts/package-portable.ps1 kullanın. Kurulum paketleri
+models/ ve outputs/ klasörlerini dışlar. Lisans incelemesi ve metinlerinin
+korunması, üçüncü taraf sahibinden alınması gereken iznin yerine geçmez.

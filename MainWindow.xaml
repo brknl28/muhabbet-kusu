@@ -22,7 +22,11 @@
                     </Pivot.Resources>
                     <PivotItem Header="EMA Lightning"/>
                     <PivotItem Header="Antalia-2 Mini"/>
+                    <PivotItem Header="mihu Turkish STT"/>
+                    <PivotItem Header="Uran STT Base"/>
                 </Pivot>
+        <Button Grid.Row="0" Content="Lisanslar" HorizontalAlignment="Right" VerticalAlignment="Center"
+                Click="LicensesButton_Click" Margin="0,0,0,20"/>
 
         <!-- Main Body: Two Columns -->
         <Grid Grid.Row="1">
@@ -44,8 +48,9 @@
                 <!-- Compact native Pivot headers, without a separate selection card. -->
 
                 <!-- Row 1: Text Input Card (Fills Available Height) -->
-                    <Grid Grid.Row="0" RowDefinitions="*,Auto" RowSpacing="8">
-                        <TextBox Grid.Row="0" x:Name="InputTextBox" AcceptsReturn="True" TextWrapping="Wrap"
+                    <Grid Grid.Row="0" RowDefinitions="Auto,*,Auto" RowSpacing="8">
+
+                        <TextBox Grid.Row="1" x:Name="InputTextBox" AcceptsReturn="True" TextWrapping="Wrap"
                                  VerticalAlignment="Stretch" MinHeight="100" Margin="0" CornerRadius="8"
                                  PlaceholderText="Seslendirmek istediğiniz Türkçe metni buraya yazın…"
                                  Text="Merhaba, Muhabbet Kuşu çalışıyor. Bu ses tamamen bilgisayarınızda üretildi."
@@ -54,7 +59,7 @@
                                 <Thickness x:Key="TextBoxTopHeaderMargin">0</Thickness>
                             </TextBox.Resources>
                         </TextBox>
-                        <Grid Grid.Row="1">
+                        <Grid Grid.Row="2">
                             <TextBlock x:Name="EstimatedSizeText" FontSize="11"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                         <TextBlock x:Name="CharCountText" Text="72 Karakter"
@@ -64,7 +69,7 @@
                     </Grid>
 
                 <!-- Row 2: Parameter Settings Card (Docked to Bottom) -->
-                <Border Grid.Row="1" Height="116"
+                <Border x:Name="ParametersCard" Grid.Row="1" Height="116"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="14">
@@ -153,10 +158,33 @@
                         BorderThickness="1" CornerRadius="8" Padding="14">
                     <Grid ColumnSpacing="20">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Grid VerticalAlignment="Center" ColumnSpacing="16">
+                        <Grid x:Name="SttFilePanel" Grid.Column="0" Visibility="Collapsed" ColumnSpacing="8" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="ChooseAudioButton" Width="36" Height="36" Padding="0" Click="ChooseAudioButton_Click"
+                                    ToolTipService.ToolTip="Dosya Seç" AutomationProperties.Name="Dosya Seç">
+                                <FontIcon Glyph="&#xE8B7;" FontSize="16"/>
+                            </Button>
+                            <Button Grid.Column="1" x:Name="RecordAudioButton" Width="36" Height="36" Padding="0"
+                                    Click="RecordAudioButton_Click" ToolTipService.ToolTip="Mikrofon Kaydı"
+                                    AutomationProperties.Name="Mikrofon Kaydı">
+                                <FontIcon x:Name="RecordAudioIcon" Glyph="&#xE720;" FontSize="16"/>
+                            </Button>
+                            <TextBlock Grid.Column="2" x:Name="SttFileText" Text="WAV, MP3, FLAC veya M4A seçin."
+                                       VerticalAlignment="Center" TextWrapping="NoWrap"/>
+                            <StackPanel Grid.Column="2" x:Name="RecordingIndicator" Visibility="Collapsed"
+                                        Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Ellipse Width="10" Height="10" Fill="#E5484D"/>
+                                <TextBlock x:Name="RecordingTimeText" Text="Kayıt Sürüyor · 0:00" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Column="1" x:Name="StatusProgressPanel" VerticalAlignment="Center" ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" MaxWidth="300"/>
                                 <ColumnDefinition Width="*"/>
@@ -175,7 +203,7 @@
                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                             </Grid>
                         </Grid>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <Button x:Name="GenerateButton" Content="▶  Ses Oluştur" Style="{ThemeResource AccentButtonStyle}"
                                     FontWeight="SemiBold" Padding="16,8" Click="GenerateButton_Click"/>
                             <Button x:Name="SaveMp3Button" Content="MP3'e Dönüştür" IsEnabled="False" Padding="12,8" Click="SaveMp3Button_Click"/>
@@ -201,8 +229,18 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Galeri" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
+                        <Button Grid.Column="4" x:Name="TranscribeGalleryButton" Width="32" Height="32" Padding="0"
+                                IsEnabled="False" Click="TranscribeGalleryButton_Click" ToolTipService.ToolTip="Metne Dönüştür"
+                                AutomationProperties.Name="Seçili Sesi Metne Dönüştür">
+                            <Grid Width="20" Height="20">
+                                <FontIcon Glyph="&#xE8F2;" FontSize="18"/>
+                                <TextBlock Text="T" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"
+                                           VerticalAlignment="Bottom"/>
+                            </Grid>
+                        </Button>
                         <Button Grid.Column="1" x:Name="RefreshGalleryButton" Width="32" Height="32" Padding="0"
                                 Click="RefreshGalleryButton_Click" ToolTipService.ToolTip="Yenile" AutomationProperties.Name="Yenile">
                             <FontIcon Glyph="&#xE72C;" FontSize="16"/>

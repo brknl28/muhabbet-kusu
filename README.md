@@ -1,41 +1,54 @@
 # Muhabbet Kuşu
 
-Windows için yerel Türkçe metinden sese uygulaması. WinUI 3 arayüzü, **EMA Lightning** ve **Antalia-2 Mini** modellerini tek çalışma alanında sunar.
+Windows için yerel Türkçe ses uygulaması. **EMA Lightning** ve **Antalia-2 Mini** ile metinden sese; **mihu Turkish STT** ve **Uran STT Base** ile sesten metne dönüştürme sağlar.
 
-- Sekmelerden model seçimi ve Windows temasına uyumlu arayüz.
-- Hız, örnekleme ve seed ayarları; Antalia için adım, CFG ve EQ kontrolleri.
-- Üretim ilerlemesi, ses galerisi, oynatma ve WAV/MP3 dışa aktarma.
+- Windows temasına uyumlu WinUI 3 arayüzü ve model sekmeleri.
+- Mikrofon kaydı, ses dosyası seçimi ve yerel metne dönüştürme.
+- Model parametreleri, ses galerisi, oynatma ve MP3 dönüşümü.
+- Modeller indirildikten sonra çevrimdışı kullanım.
+
+## Kurulum
+
+[Son sürümü indir](https://github.com/brknl28/muhabbet-kusu/releases/latest). Windows 10 (2004 ve sonrası) veya Windows 11, x64 gerekir. Setup; .NET, Python, FFmpeg ve model çalışma bileşenlerini içerir.
+
+TTS modelleri kurulum sırasında veya ilk açılışta indirilir. STT modelleri ilk kullanımda indirilir. Modeller uygulamanın `models/` klasöründe tutulur. Mikrofon ilk kullanımda izin ister. mihu modeli ayrıca kendi lisansının kabulünü ister.
+
+Paket dijital imzalı değildir; Windows güvenlik uyarısı gösterebilir. Temiz Windows ortamı testi henüz tamamlanmadı.
 
 ## Ekran Görüntüleri
 
 **EMA Lightning**
 
-![EMA Lightning çalışma alanı](docs/screenshots/ema-lightning.png)
+![EMA Lightning](docs/screenshots/ema-lightning.png)
 
 **Antalia-2 Mini**
 
-![Antalia-2 Mini ve özel ayarları](docs/screenshots/antalia-mini.png)
+![Antalia-2 Mini](docs/screenshots/antalia-mini.png)
 
-## Kurulum
+**mihu Turkish STT — Powered by mihu**
 
-Windows 10 (2004 ve sonrası) veya Windows 11, x64 gerekir. Setup dosyasını çalıştırın. Python, .NET ve FFmpeg kurulum paketine dahildir.
+![mihu Turkish STT](docs/screenshots/mihu-turkish-stt.png)
 
-Modeller önce kurulum sırasında indirilir. Bu adım atlanırsa veya indirme tamamlanmazsa uygulama ilk açılışta yeniden dener. Modeller uygulama klasörünün `models/` dizininde saklanır. Hasarlı dosyalar yeniden indirilir. Sağlam dosyalar korunur. İndirme tamamlandıktan sonra internet gerekmez.
+**Uran STT Base**
 
-## Kaynaktan Çalıştırma
+![Uran STT Base](docs/screenshots/uran-stt-base.png)
 
-Geliştirme için .NET 8 SDK ve Python 3.12 gerekir.
+## Geliştirme
+
+.NET 8 SDK, Python 3.12 ve FFmpeg gerekir. İlk çalışma ortamını hazırlamak için Inno Setup 6.7+ kullanın:
 
 ```powershell
 python -m pip install ema-lightning antalia-mini
+python -m pip install --target artifacts/stt-runtime -r requirements-stt.txt
+.\build-setup.ps1 -CompilerPath "C:\...\ISCC.exe"
 .\build.ps1
 .\run.ps1
 ```
 
-Üretilen dosyalar `outputs/` klasörüne kaydedilir. Setup üretmek için Inno Setup 6.7+, FFmpeg ve kurulu Python paketleri ile `.\build-setup.ps1 -CompilerPath "C:\...\ISCC.exe"` çalıştırın. Çıktı `artifacts/setup/` klasöründedir.
+Setup çıktısı `artifacts/setup/`, kurulum gerektirmeyen çıktı `publish/` klasöründedir. Taşınabilir ZIP için `scripts/package-portable.ps1` kullanın; model önbelleği ve ses kayıtları dışlanır.
 
 ## Lisans
 
-İmzalı paket üretimi ve temiz Windows testi için [dağıtım kontrolü](docs/release-validation.md) adımlarını kullanın.
+Uygulama kaynak kodu [MIT](LICENSE) lisanslıdır. Üçüncü taraf bileşenler kendi lisanslarına tabidir. Uran modeli Apache 2.0; mihu modeli kısıtları bulunan Community License kapsamındadır. Powered by mihu.
 
-Uygulama [MIT](LICENSE) lisansı ile sunulur. Modeller ve bağımlılıklar kendi lisanslarına tabidir.
+[Lisans ve atıf bildirimleri](THIRD_PARTY_NOTICES.txt) · [Dağıtım kontrolü](docs/release-validation.md)

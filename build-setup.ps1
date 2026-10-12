@@ -17,6 +17,10 @@ if ($SigningCertificateThumbprint) {
     $signCommand = Get-ReleaseSignCommand -Thumbprint $SigningCertificateThumbprint -SignToolPath $SignToolPath -TimestampUrl $TimestampUrl
 }
 New-Item -ItemType Directory -Force $payload,$downloads | Out-Null
+$sttSource = Join-Path $artifactRoot 'stt-runtime'
+if (-not (Test-Path (Join-Path $sttSource 'mihu_stt'))) {
+    throw 'STT paketleri eksik. python -m pip install --target artifacts/stt-runtime -r requirements-stt.txt çalıştırın.'
+}
 
 if (-not $SkipPublish) {
     dotnet publish (Join-Path $projectRoot 'MuhabbetKusu.csproj') -c Release -r win-x64 -f net8.0-windows10.0.19041.0 -p:WindowsAppSDKSelfContained=true --self-contained true -p:PublishSingleFile=false -p:UseSharedCompilation=false -o $payload
@@ -67,6 +71,11 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination $payload 
 
 & (Join-Path $pythonRoot 'python.exe') -I -c "import torch, ema_lightning, antalia_mini, soundfile; print('Private Python imports OK')"
 if ($LASTEXITCODE -ne 0) { throw 'Özel Python ortamı kontrolü başarısız.' }
+$sttTarget = Join-Path $payload 'runtime/stt-packages'
+New-Item -ItemType Directory -Force $sttTarget | Out-Null
+Copy-Item -Path (Join-Path $sttSource '*') -Destination $sttTarget -Recurse -Force
+& (Join-Path $pythonRoot 'python.exe') -I -c "import sys; sys.path.insert(0,sys.argv[1]); import mihu_stt,sherpa_onnx,faster_whisper; print('Private STT imports OK')" $sttTarget
+if ($LASTEXITCODE -ne 0) { throw 'STT çalışma ortamı kontrolü başarısız.' }
 
 if (-not $CompilerPath) {
     $compiler = Get-Command ISCC.exe -ErrorAction SilentlyContinue
@@ -80,8 +89,19 @@ if ($signCommand) {
 }
 & $CompilerPath @compilerArguments (Join-Path $projectRoot 'installer/MuhabbetKusu.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Setup oluşturulamadı.' }
-$setupFile = Join-Path $artifactRoot 'setup/MuhabbetKusu-Setup-1.1.1-x64.exe'
+$setupFile = Join-Path $artifactRoot 'setup/MuhabbetKusu-Setup-1.3.0-x64.exe'
 if ($signCommand -and (Get-AuthenticodeSignature -LiteralPath $setupFile).Status -ne 'Valid') { throw 'Setup imzası doğrulanamadı.' }
 $checksum = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash.ToLowerInvariant()
 "$checksum  $(Split-Path $setupFile -Leaf)" | Set-Content "$setupFile.sha256" -Encoding ascii
+# Keep only the verified current installer and its checksum.
+$setupRoot = [IO.Path]::GetFullPath((Join-Path $artifactRoot 'setup'))
+foreach ($oldFile in @(Get-ChildItem -LiteralPath $setupRoot -File | Where-Object {
+    $_.Name -like 'MuhabbetKusu-Setup-*-x64.exe*' -and $_.FullName -notin @($setupFile, "$setupFile.sha256")
+})) {
+    $absolute = [IO.Path]::GetFullPath($oldFile.FullName)
+    if (-not $absolute.StartsWith($setupRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Eski setup yolu beklenen klasör dışında.'
+    }
+    Remove-Item -LiteralPath $absolute -Force
+}
 Write-Host $setupFile
