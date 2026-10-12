@@ -30,18 +30,27 @@ public sealed partial class MainWindow : Window
     private string? _currentWav;
     private string _pythonExe = "python";
     private bool _isBusy;
-    private bool _suppressSelectionResultUpdate;
+    private bool _uiReady;
+    private string? _lastGeneratedText;
+    private int _lastGeneratedModel = -1;
+    private string? _lastGeneratedWav;
+    private bool _hasGeneratedAudio;
     private string _idleStatusText = "Muhabbet Kuşu başlatılıyor…";
     private readonly ObservableCollection<GalleryItem> _galleryItems = new();
 
     public MainWindow()
     {
         InitializeComponent();
+        _uiReady = true;
+        UpdateInputSummary();
+        _mediaPlayer = new Windows.Media.Playback.MediaPlayer { AutoPlay = false };
+        InitializePlaybackControls();
+        _mediaPlayer.MediaFailed += (_, _) => DispatcherQueue.TryEnqueue(() => StatusText.Text = "Ses oynatılamadı.");
         Title = "Muhabbet Kuşu";
 
         GalleryListView.ItemsSource = _galleryItems;
 
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1060, 720));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1440, 720));
 
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
         UpdateTitleBarTheme();
@@ -101,7 +110,7 @@ public sealed partial class MainWindow : Window
             _bridge = new PythonEmaBridge(_pythonExe, bridgePath);
             var reply = await _bridge.StartAsync(onStatus: message =>
                 DispatcherQueue.TryEnqueue(() => StatusText.Text = message));
-            _idleStatusText = $"Hazır · Aygıt: {reply.Device ?? "bilinmiyor"} · Modeller: EMA Lightning, Antalia-2 Mini";
+            _idleStatusText = $"Hazır · Aygıt: {reply.Device ?? "bilinmiyor"}";
             StatusText.Text = _idleStatusText;
         }
         catch (Exception ex)
@@ -127,6 +136,7 @@ public sealed partial class MainWindow : Window
 
         bool isAntalia = ModelSelector.SelectedIndex == 1;
         AntaliaSettingsPanel.Visibility = isAntalia ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumnSpan(CommonParametersPanel, isAntalia ? 1 : 2);
 
         if (isAntalia)
         {
@@ -136,12 +146,25 @@ public sealed partial class MainWindow : Window
         {
             SpeedBox.Value = 1.00;
         }
+        if (_uiReady) { UpdateInputSummary(); UpdatePlaybackButtons(); }
     }
 
     private void InputTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (!_uiReady) return;
+        UpdateInputSummary();
+        UpdatePlaybackButtons();
+    }
+
+    private void UpdateInputSummary()
+    {
         int length = InputTextBox.Text?.Length ?? 0;
-        CharCountText.Text = $"{length:N0} karakter";
+        CharCountText.Text = $"{length:N0} Karakter";
+        double speed = (double)AudioParameters.NormalizeSpeed(SpeedBox.Value, ModelSelector.SelectedIndex == 1);
+        double estimatedSeconds = length / (14.0 * speed);
+        double estimatedKb = (44 + estimatedSeconds * ParseSampleRate(SampleRateBox.SelectedItem) * 2) / 1024;
+        EstimatedSizeText.Text = $"Tahmini WAV: {estimatedKb:N0} KB";
+        ToolTipService.SetToolTip(EstimatedSizeText, "Yaklaşık 14 karakter/sn, tek kanal ve 16 bit ses hesabı. Gerçek boyut üretimden sonra belli olur.");
     }
 
     private void FixedSeedCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
@@ -156,7 +179,7 @@ public sealed partial class MainWindow : Window
         var input = InputTextBox.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(input))
         {
-            ResultText.Text = "Lütfen seslendirilecek bir metin girin.";
+            StatusText.Text = "Lütfen seslendirilecek bir metin girin.";
             return;
         }
 
@@ -210,22 +233,18 @@ public sealed partial class MainWindow : Window
             UpdateProgress(100);
 
             _currentWav = output;
-            _suppressSelectionResultUpdate = true;
-            try
-            {
-                RefreshGallery(output);
-            }
-            finally
-            {
-                _suppressSelectionResultUpdate = false;
-            }
+            RefreshGallery(output);
 
-            ResultText.Text = $"Hazır · {reply.Duration:0.00} sn · {reply.SampleRate} Hz · seed {reply.Seed}";
-            PlayButton.IsEnabled = StopButton.IsEnabled = SaveWavButton.IsEnabled = SaveMp3Button.IsEnabled = true;
+            StatusText.Text = $"Hazır · {reply.Duration:0.00} sn · {reply.SampleRate} Hz · seed {reply.Seed}";
+            _lastGeneratedText = input;
+            _lastGeneratedModel = isAntalia ? 1 : 0;
+            _lastGeneratedWav = output;
+            _hasGeneratedAudio = true;
+            EstimatedSizeText.Text = $"WAV: {new FileInfo(output).Length / 1024.0:N0} KB";
         }
         catch (Exception ex)
         {
-            ResultText.Text = $"Üretim başarısız: {ex.Message}";
+            StatusText.Text = $"Üretim başarısız: {ex.Message}";
         }
         finally
         {
@@ -242,31 +261,94 @@ public sealed partial class MainWindow : Window
         ProgressPercentText.Text = $"%{clamped}";
     }
 
-    private void PlayButton_Click(object sender, RoutedEventArgs e) => PlayCurrent();
+    private string? _loadedWav;
+    private DispatcherTimer? _playbackTimer;
+    private bool _updatingPlayback;
 
-    private void StopButton_Click(object sender, RoutedEventArgs e)
+    private void InitializePlaybackControls()
     {
-        try
-        {
-            _mediaPlayer?.Pause();
-            if (_mediaPlayer?.PlaybackSession != null)
-            {
-                _mediaPlayer.PlaybackSession.Position = TimeSpan.Zero;
-            }
-        }
-        catch { }
+        _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        _playbackTimer.Tick += (_, _) => RefreshPlaybackControls();
+        _playbackTimer.Start();
+        Closed += (_, _) => _playbackTimer.Stop();
     }
 
-    private void PlayGalleryButton_Click(object sender, RoutedEventArgs e)
+    private void RefreshPlaybackControls()
     {
-        if (GalleryListView.SelectedItem is GalleryItem item && File.Exists(item.FilePath))
+        if (_mediaPlayer == null) return;
+        var session = _mediaPlayer.PlaybackSession;
+        bool playing = session.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing;
+        PlaybackIcon.Glyph = playing ? "\uE769" : "\uE768";
+        string action = playing ? "Duraklat" : "Oynat";
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(PlaybackButton, action);
+        ToolTipService.SetToolTip(PlaybackButton, action);
+        _updatingPlayback = true;
+        try
         {
-            _currentWav = item.FilePath;
+            PlaybackSlider.Maximum = Math.Max(1, session.NaturalDuration.TotalSeconds);
+            PlaybackSlider.Value = session.Position.TotalSeconds;
+            PlaybackTime.Text = $"{FormatPlaybackTime(session.Position)} / {FormatPlaybackTime(session.NaturalDuration)}";
+            PlaybackSlider.IsEnabled = session.NaturalDuration.TotalSeconds > 0;
         }
-        PlayCurrent();
+        finally { _updatingPlayback = false; }
+    }
+
+    private static string FormatPlaybackTime(TimeSpan value) =>
+        $"{(int)value.TotalMinutes}:{value.Seconds:00}";
+
+    private void PlaybackButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_mediaPlayer?.PlaybackSession.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing)
+            _mediaPlayer.Pause();
+        else PlayCurrent();
+        RefreshPlaybackControls();
+    }
+
+    private void PlaybackSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        if (!_updatingPlayback && _mediaPlayer?.PlaybackSession.NaturalDuration.TotalSeconds > 0)
+            _mediaPlayer.PlaybackSession.Position = TimeSpan.FromSeconds(e.NewValue);
+    }
+
+    private void MuteButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_mediaPlayer == null) return;
+        _mediaPlayer.IsMuted = ((Microsoft.UI.Xaml.Controls.Primitives.ToggleButton)sender).IsChecked == true;
+        VolumeIcon.Glyph = _mediaPlayer.IsMuted ? "\uE74F" : "\uE767";
+        var action = _mediaPlayer.IsMuted ? "Sesi aç" : "Sesi kapat";
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName((DependencyObject)sender, action);
+        ToolTipService.SetToolTip((DependencyObject)sender, action);
     }
 
     private void RefreshGalleryButton_Click(object sender, RoutedEventArgs e) => RefreshGallery();
+
+    private async void DeleteGalleryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy || GalleryListView.SelectedItem is not GalleryItem item) return;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Ses silinsin mi?",
+            Content = $"{item.Name}\nBu işlem geri alınamaz.",
+            PrimaryButtonText = "Sil",
+            CloseButtonText = "Vazgeç",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            if (_loadedWav == item.FilePath)
+            {
+                _mediaPlayer?.Pause();
+                if (_mediaPlayer != null) _mediaPlayer.Source = null;
+                _loadedWav = null;
+            }
+            File.Delete(item.FilePath);
+            if (_currentWav == item.FilePath) _currentWav = null;
+            RefreshGallery();
+        }
+        catch (Exception ex) { StatusText.Text = $"Ses silinemedi: {ex.Message}"; }
+    }
 
     private void OpenFolderButton_Click(object sender, RoutedEventArgs e)
     {
@@ -288,10 +370,7 @@ public sealed partial class MainWindow : Window
         if (GalleryListView.SelectedItem is GalleryItem item && File.Exists(item.FilePath))
         {
             _currentWav = item.FilePath;
-            if (!_suppressSelectionResultUpdate)
-            {
-                ResultText.Text = "Ses seçildi.";
-            }
+
         }
         UpdatePlaybackButtons();
     }
@@ -323,51 +402,23 @@ public sealed partial class MainWindow : Window
         if (string.IsNullOrEmpty(_currentWav) || !File.Exists(_currentWav)) return;
         try
         {
-            _mediaPlayer?.Dispose();
-            _mediaPlayer = new Windows.Media.Playback.MediaPlayer();
-            _mediaPlayer.MediaFailed += (_, args) =>
-            {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    ResultText.Text = $"Oynatma hatası: {args.ErrorMessage}";
-                });
-            };
-            _mediaPlayer.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(Path.GetFullPath(_currentWav)));
-            _mediaPlayer.Play();
+            LoadSelectedAudio();
+            _mediaPlayer?.Play();
         }
         catch (Exception ex)
         {
-            ResultText.Text = $"Oynatma hatası: {ex.Message}";
+            StatusText.Text = $"Oynatma hatası: {ex.Message}";
         }
     }
 
-    private async void SaveWavButton_Click(object sender, RoutedEventArgs e)
+    private void LoadSelectedAudio()
     {
-        if (_isBusy || string.IsNullOrEmpty(_currentWav) || !File.Exists(_currentWav)) return;
-        try
-        {
-            var savePicker = new Windows.Storage.Pickers.FileSavePicker();
-            var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            if (hWnd == IntPtr.Zero) return;
-            WinRT.Interop.InitializeWithWindow.Initialize(savePicker, hWnd);
-            savePicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Downloads;
-            savePicker.FileTypeChoices.Add("WAV ses dosyası", new List<string> { ".wav" });
-            savePicker.SuggestedFileName = AudioParameters.GetSuggestedFileName(_currentWav);
-
-            var file = await savePicker.PickSaveFileAsync();
-            if (file != null)
-            {
-                if (!string.Equals(Path.GetFullPath(_currentWav), Path.GetFullPath(file.Path), StringComparison.OrdinalIgnoreCase))
-                {
-                    File.Copy(_currentWav, file.Path, overwrite: true);
-                }
-                ResultText.Text = "WAV kaydedildi.";
-            }
-        }
-        catch (Exception ex)
-        {
-            ResultText.Text = $"WAV kaydetme hatası: {ex.Message}";
-        }
+        if (_loadedWav == _currentWav) return;
+        _mediaPlayer?.Pause();
+        _loadedWav = _currentWav;
+        if (_mediaPlayer != null)
+            _mediaPlayer.Source = string.IsNullOrEmpty(_currentWav) || !File.Exists(_currentWav)
+                ? null : Windows.Media.Core.MediaSource.CreateFromUri(new Uri(Path.GetFullPath(_currentWav)));
     }
 
     private async void SaveMp3Button_Click(object sender, RoutedEventArgs e)
@@ -378,7 +429,7 @@ public sealed partial class MainWindow : Window
         var ffmpeg = File.Exists(bundledFfmpeg) ? bundledFfmpeg : FindOnPath("ffmpeg.exe") ?? FindOnPath("ffmpeg");
         if (ffmpeg is null)
         {
-            ResultText.Text = "MP3 için FFmpeg bulunamadı (winget install Gyan.FFmpeg).";
+            StatusText.Text = "MP3 için FFmpeg bulunamadı (winget install Gyan.FFmpeg).";
             return;
         }
 
@@ -395,7 +446,7 @@ public sealed partial class MainWindow : Window
 
         if (string.Equals(Path.GetFullPath(_currentWav), Path.GetFullPath(file.Path), StringComparison.OrdinalIgnoreCase))
         {
-            ResultText.Text = "MP3 hedef dosyası kaynak WAV dosyası ile aynı olamaz.";
+            StatusText.Text = "MP3 hedef dosyası kaynak WAV dosyası ile aynı olamaz.";
             return;
         }
 
@@ -416,11 +467,11 @@ public sealed partial class MainWindow : Window
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(error);
 
-            ResultText.Text = "MP3 kaydedildi.";
+            StatusText.Text = "MP3 kaydedildi.";
         }
         catch (Exception ex)
         {
-            ResultText.Text = $"MP3 dönüşüm hatası: {ex.Message}";
+            StatusText.Text = $"MP3 dönüşüm hatası: {ex.Message}";
         }
         finally
         {
@@ -498,20 +549,20 @@ public sealed partial class MainWindow : Window
     {
         bool hasCurrentWav = !string.IsNullOrEmpty(_currentWav) &&
                              File.Exists(_currentWav);
-        bool hasGallerySelection = GalleryListView.SelectedItem is GalleryItem sel &&
-                                   File.Exists(sel.FilePath);
 
-        PlayButton.IsEnabled = hasCurrentWav;
-        StopButton.IsEnabled = hasCurrentWav;
-        SaveWavButton.IsEnabled = !_isBusy && hasCurrentWav;
-        SaveMp3Button.IsEnabled = !_isBusy && hasCurrentWav;
-        PlayGalleryButton.IsEnabled = hasGallerySelection;
+        LoadSelectedAudio();
+        PlaybackButton.IsEnabled = hasCurrentWav;
+        DeleteGalleryButton.IsEnabled = !_isBusy && GalleryListView.SelectedItem is GalleryItem selected && File.Exists(selected.FilePath);
+        SaveMp3Button.IsEnabled = !_isBusy && _hasGeneratedAudio && hasCurrentWav;
+        bool matchesLastGeneration = _lastGeneratedModel == ModelSelector.SelectedIndex &&
+            string.Equals(_lastGeneratedText, InputTextBox.Text?.Trim(), StringComparison.Ordinal) &&
+            !string.IsNullOrEmpty(_lastGeneratedWav) && File.Exists(_lastGeneratedWav);
+        GenerateButton.IsEnabled = !_isBusy && !matchesLastGeneration && !string.IsNullOrWhiteSpace(InputTextBox.Text);
     }
 
     private void SetBusy(bool busy, string? message = null)
     {
         _isBusy = busy;
-        GenerateButton.IsEnabled = !busy;
         ModelSelector.IsEnabled = !busy;
         InputTextBox.IsEnabled = !busy;
         SpeedBox.IsEnabled = !busy;

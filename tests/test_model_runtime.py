@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bridge"))
-from model_runtime import ASSETS, assets_ready, configure_cache, ensure_models
+from model_runtime import ASSETS, assets_ready, configure_cache, ensure_models, file_digest
 
 TEMP_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "test-temp"
 TEMP_ROOT.mkdir(parents=True, exist_ok=True)
@@ -26,7 +26,7 @@ class ModelRuntimeTests(unittest.TestCase):
             for name in names:
                 path = snapshot / name
                 path.write_bytes(b"test model")
-                entries.append({"repo": repo, "name": name, "path": str(path.relative_to(root)), "size": path.stat().st_size})
+                entries.append({"repo": repo, "name": name, "path": str(path.relative_to(root)), "size": path.stat().st_size, "sha256": file_digest(path)})
         (root / "ready.json").write_text(json.dumps(entries))
         return entries
 
@@ -35,6 +35,7 @@ class ModelRuntimeTests(unittest.TestCase):
             root = configure_cache(Path(temp) / "models")
             self.assertFalse(assets_ready(root))
             self.assertNotIn("HF_HUB_OFFLINE", os.environ)
+            self.assertEqual("1", os.environ["HF_HUB_DISABLE_SYMLINKS"])
             for key in ("HF_HOME", "HF_HUB_CACHE", "TORCH_HOME", "XDG_CACHE_HOME", "ANTALIA_MINI_CACHE"):
                 self.assertTrue(Path(os.environ[key]).is_relative_to(root))
 
@@ -70,6 +71,34 @@ class ModelRuntimeTests(unittest.TestCase):
             entries = self.make_cache(root)
             entries[0]["path"] = "../outside.pt"
             (root / "ready.json").write_text(json.dumps(entries))
+            self.assertFalse(assets_ready(root))
+
+    def test_corrupted_weight_is_redownloaded_without_replacing_other_files(self):
+        with tempfile.TemporaryDirectory(dir=TEMP_ROOT) as temp:
+            root = Path(temp)
+            entries = self.make_cache(root)
+            damaged = root / entries[1]["path"]
+            damaged.write_bytes(b"bad! model")  # Same size as the original.
+            self.assertFalse(assets_ready(root))
+            repaired = []
+            def download(repo, name, local_files_only=False, force_download=False):
+                entry = next(e for e in entries if e["repo"] == repo and e["name"] == name)
+                path = root / entry["path"]
+                if force_download:
+                    path.write_bytes(b"test model")
+                    repaired.append(name)
+                return str(path)
+            modules = {"huggingface_hub": types.SimpleNamespace(hf_hub_download=download), "huggingface_hub.errors": types.SimpleNamespace(LocalEntryNotFoundError=FileNotFoundError)}
+            with patch.dict(sys.modules, modules):
+                ensure_models(root)
+            self.assertTrue(assets_ready(root))
+            self.assertEqual(["ema.pt"], repaired)
+
+    def test_changed_revision_requires_repair(self):
+        with tempfile.TemporaryDirectory(dir=TEMP_ROOT) as temp:
+            root = Path(temp)
+            self.make_cache(root)
+            next(root.glob("huggingface/hub/*/refs/main")).write_text("missing-revision")
             self.assertFalse(assets_ready(root))
 
     def test_failed_download_can_resume_without_replacing_completed_files(self):

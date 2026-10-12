@@ -8,7 +8,7 @@
 [Setup]
 AppId={{2A4A4E96-436E-4532-9690-4E9B7F20388C}
 AppName=Muhabbet Kuşu
-AppVersion=1.1.0
+AppVersion=1.1.1
 AppPublisher=Muhabbet Kuşu
 DefaultDirName={localappdata}\MuhabbetKusu
 DefaultGroupName=Muhabbet Kuşu
@@ -23,11 +23,15 @@ SetupIconFile=..\Assets\app.ico
 UninstallDisplayIcon={app}\MuhabbetKusu.exe
 LicenseFile=..\LICENSE
 OutputDir={#SetupOutputDir}
-OutputBaseFilename=MuhabbetKusu-Setup-1.1.0-x64
+OutputBaseFilename=MuhabbetKusu-Setup-1.1.1-x64
 Compression=lzma2/fast
 SolidCompression=yes
 CloseApplications=yes
 RestartApplications=no
+#ifdef SignEnabled
+SignedUninstaller=yes
+SignTool=appsign
+#endif
 
 [Languages]
 Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"

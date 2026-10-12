@@ -1,13 +1,21 @@
 param(
     [string]$CompilerPath,
     [string]$FfmpegPath,
-    [switch]$SkipPublish
+    [switch]$SkipPublish,
+    [string]$SigningCertificateThumbprint,
+    [string]$SignToolPath,
+    [string]$TimestampUrl = 'https://timestamp.digicert.com'
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 $artifactRoot = Join-Path $projectRoot 'artifacts'
 $payload = Join-Path $artifactRoot 'payload'
 $downloads = Join-Path $artifactRoot 'downloads'
+$signCommand = $null
+if ($SigningCertificateThumbprint) {
+    . (Join-Path $projectRoot 'scripts/signing.ps1')
+    $signCommand = Get-ReleaseSignCommand -Thumbprint $SigningCertificateThumbprint -SignToolPath $SignToolPath -TimestampUrl $TimestampUrl
+}
 New-Item -ItemType Directory -Force $payload,$downloads | Out-Null
 
 if (-not $SkipPublish) {
@@ -65,6 +73,15 @@ if (-not $CompilerPath) {
     $CompilerPath = if ($compiler) { $compiler.Source } else { Join-Path $artifactRoot 'tools/inno/ISCC.exe' }
 }
 if (-not (Test-Path -LiteralPath $CompilerPath)) { throw 'Inno Setup ISCC.exe bulunamadı. -CompilerPath ile yolunu verin.' }
-& $CompilerPath /Q "/DPayloadDir=$payload" "/DSetupOutputDir=$(Join-Path $artifactRoot 'setup')" (Join-Path $projectRoot 'installer/MuhabbetKusu.iss')
+$compilerArguments = @('/Q', "/DPayloadDir=$payload", "/DSetupOutputDir=$(Join-Path $artifactRoot 'setup')")
+if ($signCommand) {
+    Invoke-ReleaseSign -Path (Join-Path $payload 'MuhabbetKusu.exe') -Command $signCommand
+    $compilerArguments += '/DSignEnabled=1', "/Sappsign=$signCommand"
+}
+& $CompilerPath @compilerArguments (Join-Path $projectRoot 'installer/MuhabbetKusu.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Setup oluşturulamadı.' }
-Write-Host (Join-Path $artifactRoot 'setup/MuhabbetKusu-Setup-1.1.0-x64.exe')
+$setupFile = Join-Path $artifactRoot 'setup/MuhabbetKusu-Setup-1.1.1-x64.exe'
+if ($signCommand -and (Get-AuthenticodeSignature -LiteralPath $setupFile).Status -ne 'Valid') { throw 'Setup imzası doğrulanamadı.' }
+$checksum = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash.ToLowerInvariant()
+"$checksum  $(Split-Path $setupFile -Leaf)" | Set-Content "$setupFile.sha256" -Encoding ascii
+Write-Host $setupFile
