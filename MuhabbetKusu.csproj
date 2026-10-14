@@ -2,13 +2,17 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0-windows10.0.19041.0;net8.0-windows</TargetFrameworks>
     <RootNamespace>MuhabbetKusu</RootNamespace>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MuhabbetKusu</AssemblyName>
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\VERSION').Trim())</Version>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <DefaultItemExcludes>$(DefaultItemExcludes);tests\**;artifacts\**;models\**</DefaultItemExcludes>
   </PropertyGroup>
 
@@ -54,4 +58,12 @@
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
+  <Target Name="PrepareVersionedApplicationManifest" BeforeTargets="PrepareForBuild" Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">
+    <PropertyGroup>
+      <ApplicationManifest>$(IntermediateOutputPath)app.manifest</ApplicationManifest>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\app.manifest" DestinationFiles="$(ApplicationManifest)" />
+    <XmlPoke XmlInputPath="$(ApplicationManifest)" Query="/*[local-name()='assembly']/*[local-name()='assemblyIdentity']/@version" Value="$(AssemblyVersion)" />
+  </Target>
 </Project>

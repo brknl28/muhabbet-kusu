@@ -8,6 +8,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
+. (Join-Path $projectRoot 'scripts/version.ps1')
+$appVersion = Get-AppVersion
 $artifactRoot = Join-Path $projectRoot 'artifacts'
 $payload = Join-Path $artifactRoot 'payload'
 $downloads = Join-Path $artifactRoot 'downloads'
@@ -16,15 +18,25 @@ if ($SigningCertificateThumbprint) {
     . (Join-Path $projectRoot 'scripts/signing.ps1')
     $signCommand = Get-ReleaseSignCommand -Thumbprint $SigningCertificateThumbprint -SignToolPath $SignToolPath -TimestampUrl $TimestampUrl
 }
-New-Item -ItemType Directory -Force $payload,$downloads | Out-Null
 $sttSource = Join-Path $artifactRoot 'stt-runtime'
 if (-not (Test-Path (Join-Path $sttSource 'mihu_stt'))) {
     throw 'STT paketleri eksik. python -m pip install --target artifacts/stt-runtime -r requirements-stt.txt çalıştırın.'
 }
+New-Item -ItemType Directory -Force $downloads | Out-Null
 
 if (-not $SkipPublish) {
+    $absolutePayload = [IO.Path]::GetFullPath($payload)
+    if (-not $absolutePayload.StartsWith([IO.Path]::GetFullPath($artifactRoot) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Payload yolu artifacts dışında.' }
+    if (Test-Path -LiteralPath $absolutePayload) {
+        if ((Get-Item -LiteralPath $absolutePayload).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Bağlantılı payload klasörü temizlenemez.' }
+        Remove-Item -LiteralPath $absolutePayload -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force $payload,$downloads | Out-Null
     dotnet publish (Join-Path $projectRoot 'MuhabbetKusu.csproj') -c Release -r win-x64 -f net8.0-windows10.0.19041.0 -p:WindowsAppSDKSelfContained=true --self-contained true -p:PublishSingleFile=false -p:UseSharedCompilation=false -o $payload
     if ($LASTEXITCODE -ne 0) { throw 'Uygulama publish işlemi başarısız.' }
+}
+if ((Get-Item (Join-Path $payload 'MuhabbetKusu.exe')).VersionInfo.ProductVersion -ne $appVersion) {
+    throw 'Payload sürümü VERSION ile aynı değil. SkipPublish kullanmadan yeniden derleyin.'
 }
 New-Item -ItemType Directory -Force (Join-Path $payload 'bridge') | Out-Null
 Copy-Item -Path (Join-Path $projectRoot 'bridge/*.py') -Destination (Join-Path $payload 'bridge') -Force
@@ -82,14 +94,14 @@ if (-not $CompilerPath) {
     $CompilerPath = if ($compiler) { $compiler.Source } else { Join-Path $artifactRoot 'tools/inno/ISCC.exe' }
 }
 if (-not (Test-Path -LiteralPath $CompilerPath)) { throw 'Inno Setup ISCC.exe bulunamadı. -CompilerPath ile yolunu verin.' }
-$compilerArguments = @('/Q', "/DPayloadDir=$payload", "/DSetupOutputDir=$(Join-Path $artifactRoot 'setup')")
+$compilerArguments = @('/Q', "/DAppVersion=$appVersion", "/DPayloadDir=$payload", "/DSetupOutputDir=$(Join-Path $artifactRoot 'setup')")
 if ($signCommand) {
     Invoke-ReleaseSign -Path (Join-Path $payload 'MuhabbetKusu.exe') -Command $signCommand
     $compilerArguments += '/DSignEnabled=1', "/Sappsign=$signCommand"
 }
 & $CompilerPath @compilerArguments (Join-Path $projectRoot 'installer/MuhabbetKusu.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Setup oluşturulamadı.' }
-$setupFile = Join-Path $artifactRoot 'setup/MuhabbetKusu-Setup-1.4.0-x64.exe'
+$setupFile = Join-Path $artifactRoot "setup/MuhabbetKusu-Setup-$appVersion-x64.exe"
 if ($signCommand -and (Get-AuthenticodeSignature -LiteralPath $setupFile).Status -ne 'Valid') { throw 'Setup imzası doğrulanamadı.' }
 $checksum = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash.ToLowerInvariant()
 "$checksum  $(Split-Path $setupFile -Leaf)" | Set-Content "$setupFile.sha256" -Encoding ascii
