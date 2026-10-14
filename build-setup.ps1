@@ -74,7 +74,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Özel Python ortamı kontrolü başarısız.' 
 $sttTarget = Join-Path $payload 'runtime/stt-packages'
 New-Item -ItemType Directory -Force $sttTarget | Out-Null
 Copy-Item -Path (Join-Path $sttSource '*') -Destination $sttTarget -Recurse -Force
-& (Join-Path $pythonRoot 'python.exe') -I -c "import sys; sys.path.insert(0,sys.argv[1]); import mihu_stt,sherpa_onnx,faster_whisper; print('Private STT imports OK')" $sttTarget
+& (Join-Path $pythonRoot 'python.exe') -I -c "import sys; sys.path[:0]=sys.argv[1:]; import mihu_stt,sherpa_onnx,faster_whisper,onnxruntime,sentencepiece,duyu_small; print('Private STT imports OK')" $sttTarget (Join-Path $payload 'bridge')
 if ($LASTEXITCODE -ne 0) { throw 'STT çalışma ortamı kontrolü başarısız.' }
 
 if (-not $CompilerPath) {

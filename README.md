@@ -15,6 +15,7 @@ Açık kaynaklı ve topluluk lisanslı Türkçe modeller:
 - [Antalia-2 Mini](https://huggingface.co/cloud0day3/antalia-mini) — Metinden sese.
 - [mihu Turkish STT](https://huggingface.co/mihuai/turkish-stt) — Sesten metne. Community License kullanım kısıtları içerir.
 - [Uran STT Base](https://huggingface.co/curiositytech/uran-stt-base) — Sesten metne. Apache 2.0 lisanslıdır.
+- [Duyu-small](https://huggingface.co/KaanAydinli/Duyu-small) — Türkçe ve İngilizce kısa ses kayıtlarından metne. Apache 2.0 lisanslıdır.
 
 ## Kurulum
 
@@ -56,6 +57,6 @@ Setup çıktısı `artifacts/setup/`, kurulum gerektirmeyen çıktı `publish/` 
 
 ## Lisans
 
-Uygulama kaynak kodu [MIT](LICENSE) lisanslıdır. Üçüncü taraf bileşenler kendi lisanslarına tabidir. Uran modeli Apache 2.0; mihu modeli kısıtları bulunan Community License kapsamındadır. Powered by mihu.
+Uygulama kaynak kodu [MIT](LICENSE) lisanslıdır. Üçüncü taraf bileşenler kendi lisanslarına tabidir. Uran ve Duyu modelleri Apache 2.0; mihu modeli kısıtları bulunan Community License kapsamındadır. Powered by mihu.
 
 [Lisans ve atıf bildirimleri](THIRD_PARTY_NOTICES.txt) · [Dağıtım kontrolü](docs/release-validation.md)

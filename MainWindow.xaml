@@ -24,6 +24,7 @@
                     <PivotItem Header="Antalia-2 Mini"/>
                     <PivotItem Header="mihu Turkish STT"/>
                     <PivotItem Header="Uran STT Base"/>
+                    <PivotItem Header="Duyu-small"/>
                 </Pivot>
         <Button Grid.Row="0" Content="Lisanslar" HorizontalAlignment="Right" VerticalAlignment="Center"
                 Click="LicensesButton_Click" Margin="0,0,0,20"/>

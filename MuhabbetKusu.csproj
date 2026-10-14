@@ -42,8 +42,8 @@
   <ItemGroup>
     <None Update="Assets\app.ico;Assets\app.svg;Assets\app.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Assets\mihu-NOTICE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <None Update="Assets\uran-LICENSE.txt;Assets\NAudio-LICENSE.txt;Assets\whisper-LICENSE.txt;THIRD_PARTY_NOTICES.txt;LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <None Update="bridge\*.py">
+    <None Update="Assets\uran-LICENSE.txt;Assets\duyu-LICENSE.txt;Assets\NAudio-LICENSE.txt;Assets\whisper-LICENSE.txt;THIRD_PARTY_NOTICES.txt;LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="bridge\**\*.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

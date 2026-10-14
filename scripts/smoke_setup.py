@@ -1,4 +1,4 @@
-"""Exercise the installed private runtime and both models with network disabled."""
+"""Exercise private TTS/STT runtimes with network disabled."""
 import argparse
 import json
 import os
@@ -61,7 +61,7 @@ def main():
             timeout.cancel()
             if args.stt:
                 results["stt"] = {}
-                for model in ("mihu", "uran"):
+                for model in ("mihu", "uran", "duyu"):
                     run = subprocess.run([str(python), "-I", "-X", "utf8", str(root / "bridge" / "stt_bridge.py"), str(output), "--model", model,
                         "--models-dir", str(models), "--packages", str(root / "runtime" / "stt-packages"),
                         "--ffmpeg", str(root / "runtime" / "ffmpeg" / "ffmpeg.exe")],

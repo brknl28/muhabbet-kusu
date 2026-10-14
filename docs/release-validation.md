@@ -32,7 +32,7 @@ Hazırlanmış test paketi, tamamlanmış temiz Windows testi değildir. Sonuç 
 
 ## Yerel paket kontrolü
 
-Kurulan paketin kendi Python dosyası ile dört modeli ve MP3 dönüşümünü sınayın:
+Kurulan paketin kendi Python dosyası ile beş modeli ve MP3 dönüşümünü sınayın:
 
 ```powershell
 <kurulum>\runtime\python\python.exe -I scripts\smoke_setup.py <kurulum> --models-dir <model-önbelleği> --stt

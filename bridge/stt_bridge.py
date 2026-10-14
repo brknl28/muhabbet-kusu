@@ -1,4 +1,4 @@
-"""Local file transcription with mihu Turkish STT. JSON lines on stdout."""
+"""Local file transcription with mihu, Uran and Duyu. JSON lines on stdout."""
 import argparse
 import json
 import os
@@ -8,6 +8,22 @@ import sys
 import tempfile
 import time
 import shutil
+
+MODELS = {
+    "mihu": {
+        "repository": "mihuai/turkish-stt",
+        "files": ["tokens.txt", "encoder.int8.onnx", "decoder.onnx", "joiner.int8.onnx", "LICENSE", "NOTICE"],
+    },
+    "uran": {
+        "repository": "curiositytech/uran-stt-base",
+        "files": ["model.bin", "config.json", "tokenizer.json", "tokenizer_config.json", "vocabulary.*", "preprocessor_config.json", "LICENSE", "NOTICE"],
+    },
+    "duyu": {
+        "repository": "KaanAydinli/Duyu-small",
+        "revision": "1f1c3274b89b0fef77f0e86b25b1b616d5ca4497",
+        "files": ["int8/*.onnx", "engine.json", "config.json", "fbank.npz", "passes.npz", "spm.model", "LICENSE", "NOTICE"],
+    },
+}
 
 
 def send(**values):
@@ -20,7 +36,7 @@ def main():
     parser.add_argument("--models-dir", type=Path, required=True)
     parser.add_argument("--packages", type=Path)
     parser.add_argument("--ffmpeg")
-    parser.add_argument("--model", choices=["mihu", "uran"], default="mihu")
+    parser.add_argument("--model", choices=MODELS, default="mihu")
     args = parser.parse_args()
     if args.packages:
         sys.path.insert(0, str(args.packages.resolve()))
@@ -32,13 +48,9 @@ def main():
                        "HF_HUB_DISABLE_TELEMETRY": "1", "HF_HUB_DOWNLOAD_TIMEOUT": "60"})
     from huggingface_hub import snapshot_download
     send(status="loading", message="STT modeli hazırlanıyor. İlk kullanımda indirme yapılır.")
-    if args.model == "uran":
-        files = ["model.bin", "config.json", "tokenizer.json", "tokenizer_config.json", "vocabulary.*", "preprocessor_config.json", "LICENSE", "NOTICE"]
-        repository = "curiositytech/uran-stt-base"
-    else:
-        files = ["tokens.txt", "encoder.int8.onnx", "decoder.onnx", "joiner.int8.onnx", "LICENSE", "NOTICE"]
-        repository = "mihuai/turkish-stt"
-    model_dir = snapshot_download(repository, allow_patterns=files, cache_dir=str(cache / "hub"))
+    definition = MODELS[args.model]
+    model_dir = snapshot_download(definition["repository"], revision=definition.get("revision"),
+                                  allow_patterns=definition["files"], cache_dir=str(cache / "hub"))
     if args.model == "uran" and not (Path(model_dir) / "tokenizer.json").exists():
         # Uran publishes the Whisper vocabulary but no tokenizer.json.
         from huggingface_hub import hf_hub_download
@@ -53,7 +65,13 @@ def main():
             subprocess.run([args.ffmpeg, "-nostdin", "-y", "-hide_banner", "-loglevel", "error",
                             "-i", str(args.audio.resolve()), "-vn", "-ac", "1", "-ar", "16000", source],
                            check=True, capture_output=True, timeout=300)
-        if args.model == "uran":
+        if args.model == "duyu":
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from duyu_small import DuyuSmall
+            from duyu_small.audio import load_audio
+            model = DuyuSmall(model_dir, quant="int8", threads=4, lang="mix")
+            text = model.transcribe(load_audio(source))
+        elif args.model == "uran":
             from faster_whisper import WhisperModel
             model = WhisperModel(model_dir, device="cpu", compute_type="int8", cpu_threads=4)
             segments, info = model.transcribe(source, language="tr", beam_size=5, vad_filter=True,

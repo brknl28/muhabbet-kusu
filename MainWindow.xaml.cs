@@ -199,8 +199,9 @@ public sealed partial class MainWindow : Window
         CharCountText.Text = $"{length:N0} Karakter";
         if (_sttActive)
         {
-            EstimatedSizeText.Text = ModelSelector.SelectedIndex == 2 ? "Powered by mihu" : "Uran STT Base · Curiosity Technology";
-            ToolTipService.SetToolTip(EstimatedSizeText, ModelSelector.SelectedIndex == 2 ? "mihu Community License" : "Apache License 2.0");
+            var model = SttModels.ForTab(ModelSelector.SelectedIndex);
+            EstimatedSizeText.Text = model.Attribution;
+            ToolTipService.SetToolTip(EstimatedSizeText, model.License);
             return;
         }
         double speed = (double)AudioParameters.NormalizeSpeed(SpeedBox.Value, ModelSelector.SelectedIndex == 1);
@@ -263,7 +264,7 @@ public sealed partial class MainWindow : Window
             {
                 if (!await EnsureMicrophonePermissionAsync()) return;
                 _microphone = new MicrophoneRecorder();
-                var recordingModel = ModelSelector.SelectedIndex == 3 ? "uran-stt" : "turkish-stt";
+                var recordingModel = SttModels.ForTab(ModelSelector.SelectedIndex).Key + "-stt";
                 _recordingFile = Path.Combine(GetOutputsDirectory(), $"{recordingModel}_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString()[..4]}.wav");
                 _microphone.Start(_recordingFile);
                 _recording = true;
@@ -396,7 +397,8 @@ public sealed partial class MainWindow : Window
     private async Task TranscribeSelectedAudioAsync()
     {
         if (string.IsNullOrEmpty(_selectedAudio) || !File.Exists(_selectedAudio)) return;
-        if (ModelSelector.SelectedIndex == 2 && !await EnsureMihuLicenseAsync()) return;
+        var model = SttModels.ForTab(ModelSelector.SelectedIndex);
+        if (model.RequiresLicenseAcceptance && !await EnsureMihuLicenseAsync()) return;
         SetBusy(true, "STT modeli hazırlanıyor…");
         ProgressPanel.Visibility = Visibility.Visible;
         SynthesisProgressBar.IsIndeterminate = true;
@@ -417,7 +419,7 @@ public sealed partial class MainWindow : Window
             info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "bridge", "stt_bridge.py"));
             info.ArgumentList.Add(_selectedAudio);
             info.ArgumentList.Add("--model");
-            info.ArgumentList.Add(ModelSelector.SelectedIndex == 3 ? "uran" : "mihu");
+            info.ArgumentList.Add(model.Key);
             info.ArgumentList.Add("--models-dir");
             info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "models"));
             info.ArgumentList.Add("--packages");
@@ -618,7 +620,7 @@ public sealed partial class MainWindow : Window
 
     private async void DeleteGalleryButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isBusy || GalleryListView.SelectedItem is not GalleryItem item) return;
+        if (_isBusy || _recording || GalleryListView.SelectedItem is not GalleryItem item) return;
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
@@ -848,7 +850,7 @@ public sealed partial class MainWindow : Window
 
         LoadSelectedAudio();
         PlaybackButton.IsEnabled = hasCurrentWav;
-        DeleteGalleryButton.IsEnabled = !_isBusy && GalleryListView.SelectedItem is GalleryItem selected && File.Exists(selected.FilePath);
+        DeleteGalleryButton.IsEnabled = !_isBusy && !_recording && GalleryListView.SelectedItem is GalleryItem selected && File.Exists(selected.FilePath);
         TranscribeGalleryButton.IsEnabled = !_isBusy && !_recording && GalleryListView.SelectedItem is GalleryItem audio && File.Exists(audio.FilePath);
         SaveMp3Button.IsEnabled = !_isBusy && _hasGeneratedAudio && hasCurrentWav;
         bool matchesLastGeneration = _lastGeneratedModel == ModelSelector.SelectedIndex &&

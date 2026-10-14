@@ -18,12 +18,21 @@ Kaynak: https://huggingface.co/curiositytech/uran-stt-base
 Model değiştirilmeden CPU üzerinde çalıştırılır. Model ağırlıkları ilk
 kullanımda indirilir. Upstream depoda ayrı bir NOTICE dosyası yoktur.
 
+Duyu-small — Kaan Aydınlı
+Model, ONNX dosyaları ve Python motoru: Apache License 2.0.
+Tam metin: Assets/duyu-LICENSE.txt.
+Kaynak: https://huggingface.co/KaanAydinli/Duyu-small
+Motor kaynak sürümü: 1f1c3274b89b0fef77f0e86b25b1b616d5ca4497.
+bridge/duyu_small içindeki motor dosyaları değiştirilmeden korunmuştur.
+Int8 model ağırlıkları ilk kullanımda indirilir; setup'a eklenmez.
+
 Çalışma bileşenleri
 NAudio: MIT. https://github.com/naudio/NAudio
 Tam metin: Assets/NAudio-LICENSE.txt.
 Uran için Whisper-base tokenizer: OpenAI, MIT. Assets/whisper-LICENSE.txt.
 faster-whisper: MIT. https://github.com/SYSTRAN/faster-whisper
 CTranslate2: MIT. https://github.com/OpenNMT/CTranslate2
+SentencePiece: Apache-2.0. https://github.com/google/sentencepiece
 sherpa-onnx: Apache-2.0. https://github.com/k2-fsa/sherpa-onnx
 Python, PyTorch, ONNX Runtime, NumPy ve diğer Python bileşenlerinin lisans
 metinleri runtime içindeki dist-info/licenses veya ilgili paket klasörlerinde

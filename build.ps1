@@ -13,8 +13,10 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 
 python -c "import ema_lightning, antalia_mini; print('ema-lightning and antalia-mini OK')"
 if ($LASTEXITCODE -ne 0) { throw 'Python bağımlılıkları bulunamadı.' }
-if (-not (Test-Path (Join-Path $PSScriptRoot 'artifacts/stt-runtime/mihu_stt'))) {
-    throw 'STT paketlerini önce kurun: python -m pip install --target artifacts/stt-runtime -r requirements-stt.txt'
+foreach ($package in @('mihu_stt','faster_whisper','sentencepiece','onnxruntime')) {
+    if (-not (Test-Path (Join-Path $PSScriptRoot "artifacts/stt-runtime/$package"))) {
+        throw 'STT paketlerini önce kurun: python -m pip install --target artifacts/stt-runtime -r requirements-stt.txt'
+    }
 }
 
 & (Join-Path $PSScriptRoot 'scripts/clean-portable-builds.ps1')

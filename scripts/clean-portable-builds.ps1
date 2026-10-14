@@ -18,7 +18,7 @@ foreach ($process in @(Get-Process MuhabbetKusu -ErrorAction SilentlyContinue)) 
 # Preserve user data from earlier portable copies before removing build files.
 foreach ($target in $targets) {
     if (-not (Test-Path -LiteralPath $target)) { continue }
-    foreach ($folder in @(Get-ChildItem -LiteralPath $target -Directory -Recurse | Where-Object { $_.Name -in @('models','outputs') })) {
+    foreach ($folder in @(Get-ChildItem -LiteralPath $target -Directory | Where-Object { $_.Name -in @('models','outputs') })) {
         if ($folder.FullName -in @((Join-Path $publishRoot 'models'),(Join-Path $publishRoot 'outputs'))) { continue }
         $backup = Join-Path $projectRoot ('artifacts/preserved-data/' + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force $backup | Out-Null
