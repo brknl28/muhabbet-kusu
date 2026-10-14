@@ -89,7 +89,7 @@ if ($signCommand) {
 }
 & $CompilerPath @compilerArguments (Join-Path $projectRoot 'installer/MuhabbetKusu.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Setup oluşturulamadı.' }
-$setupFile = Join-Path $artifactRoot 'setup/MuhabbetKusu-Setup-1.3.1-x64.exe'
+$setupFile = Join-Path $artifactRoot 'setup/MuhabbetKusu-Setup-1.4.0-x64.exe'
 if ($signCommand -and (Get-AuthenticodeSignature -LiteralPath $setupFile).Status -ne 'Valid') { throw 'Setup imzası doğrulanamadı.' }
 $checksum = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash.ToLowerInvariant()
 "$checksum  $(Split-Path $setupFile -Leaf)" | Set-Content "$setupFile.sha256" -Encoding ascii

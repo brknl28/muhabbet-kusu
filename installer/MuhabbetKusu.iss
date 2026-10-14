@@ -8,7 +8,7 @@
 [Setup]
 AppId={{2A4A4E96-436E-4532-9690-4E9B7F20388C}
 AppName=Muhabbet Kuşu
-AppVersion=1.3.1
+AppVersion=1.4.0
 AppPublisher=Muhabbet Kuşu
 DefaultDirName={localappdata}\MuhabbetKusu
 DefaultGroupName=Muhabbet Kuşu
@@ -23,7 +23,7 @@ SetupIconFile=..\Assets\app.ico
 UninstallDisplayIcon={app}\MuhabbetKusu.exe
 LicenseFile=..\LICENSE
 OutputDir={#SetupOutputDir}
-OutputBaseFilename=MuhabbetKusu-Setup-1.3.1-x64
+OutputBaseFilename=MuhabbetKusu-Setup-1.4.0-x64
 Compression=lzma2/fast
 SolidCompression=yes
 CloseApplications=yes

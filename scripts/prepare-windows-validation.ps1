@@ -1,4 +1,4 @@
-param([string]$SetupPath = (Join-Path $PSScriptRoot '../artifacts/setup/MuhabbetKusu-Setup-1.3.1-x64.exe'))
+param([string]$SetupPath = (Join-Path $PSScriptRoot '../artifacts/setup/MuhabbetKusu-Setup-1.4.0-x64.exe'))
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot '../artifacts/windows-validation'
 $inputFolder = Join-Path $root 'input'
