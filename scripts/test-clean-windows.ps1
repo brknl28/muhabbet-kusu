@@ -29,7 +29,7 @@ try {
     & (Join-Path $appRoot 'runtime/python/python.exe') -I (Join-Path $InputFolder 'smoke_setup.py') $appRoot
     if ($LASTEXITCODE -ne 0) { throw 'Çevrimdışı ses testi başarısız.' }
     Copy-Item -LiteralPath (Join-Path $appRoot 'smoke-results.json') -Destination $ResultsFolder
-    $report.checks += 'Both TTS models, WAV and MP3 with offline model cache'
+    $report.checks += 'All three TTS models, WAV and MP3 with offline model cache'
     $gui = Start-Process -FilePath (Join-Path $appRoot 'MuhabbetKusu.exe') -PassThru
     $deadline = (Get-Date).AddSeconds(30)
     do {

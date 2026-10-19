@@ -1,6 +1,31 @@
 Muhabbet Kuşu
 Uygulama kaynak kodu: MIT. Üçüncü taraf bileşenler kendi lisanslarına tabidir.
 
+Ahenk Cep — Özgür Güler
+Ahenk Cep, Ahenk (https://github.com/ozguradmin/ahenk-turkish-tts), CC BY 4.0.
+Model kartı: https://huggingface.co/ozgurguler/ahenk-cep-tr
+Model ağırlıkları: Creative Commons Attribution 4.0 International.
+Lisans: https://creativecommons.org/licenses/by/4.0/.
+Tam metin: Assets/ahenk-cep-LICENSE.txt.
+Model sürümü: 345c4cbb934815fa96ffd0d5061fd913237544bc.
+Çıkarım kodu (bridge/ahenk_cep.py): Apache License 2.0.
+Alania Turkish Synthetic Speech by PatientDesk AI:
+https://huggingface.co/datasets/cloud0day3/alania-synthetic-speech-tr
+Alania Turkish Domain Text by PatientDesk AI:
+https://huggingface.co/datasets/cloud0day3/alania-domain-text-tr
+Her iki veri kaynağı CC BY 4.0 lisanslıdır; Ahenk öğretmeni üzerinden kullanılmıştır.
+Taban EMA Lightning: https://huggingface.co/canberkkkkkk/ema-lightning, Apache-2.0.
+Atıf: "Ahenk Cep, Ahenk (https://github.com/ozguradmin/ahenk-turkish-tts), CC BY 4.0."
+f022 tasarlanmış yapay bir sestir. Üretilen sesi paylaşırken yapay olduğunu belirtin.
+Ağırlıklar değiştirilmeden, ilk kullanımda model kartından indirilir; setup'a eklenmez.
+
+trnorm ve trtts — Copyright 2026 Özgür Güler
+Lisans: Apache License 2.0. Assets/trnorm-LICENSE.txt ve Assets/trnorm-NOTICE.txt.
+Kaynak: https://github.com/ozguradmin/ahenk-turkish-tts
+Kaynak sürümü: e6c2a3718e2f32f025856f7fa392d275f4891089.
+bridge/trnorm, bridge/trtts ve bridge/ahenk_cep.py kaynakları değiştirilmeden
+korunmuştur. trnorm, EMA Lightning ve Ahenk Cep metin ön uçlarında kullanılır.
+
 mihu Turkish STT — Powered by mihu
 Model ve mihu_stt paketi: mihu Community License v1.0.
 Tam metin: Assets/mihu-NOTICE.txt.

@@ -8,7 +8,7 @@ from pathlib import Path
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
-ROOT_PACKAGES = ("ema-lightning==1.0.1", "antalia-mini[hub]==1.0.0")
+ROOT_PACKAGES = ("ema-lightning==1.1.2", "antalia-mini[hub]==1.0.0")
 
 
 def main():

@@ -76,17 +76,24 @@ startup_thread.start()
 
 try:
     model_root = configure_cache()
-    ensure_models(model_root, startup_status)
+    model_entries = ensure_models(model_root, startup_status)
     startup_status("Ses modelleri yükleniyor…")
     import torch
     from ema_lightning import EMA
     from antalia_mini import Antalia
+    from trtts import TurkishTTS
+    from ahenk_cep import AhenkCep
+    from tts_frontends import ahenk_speech
 
     device = "CUDA / " + torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
 
-    # Pre-instantiate both models persistent in memory
+    # Pre-instantiate all three TTS models once and keep them in memory.
     ema_tts = EMA()
+    ema_voice = TurkishTTS(engine=ema_tts)
     antalia_tts = Antalia(model="cloud0day3/antalia-mini")
+    ahenk_files = {entry["name"]: model_root / entry["path"] for entry in model_entries
+                   if entry["repo"] == "ozgurguler/ahenk-cep-tr"}
+    ahenk_tts = AhenkCep(ahenk_files["student.pt"], ahenk_files["decoder.pt"], device=str(ema_tts.device))
 
     startup_stop.set()
     startup_thread.join()
@@ -94,7 +101,7 @@ try:
         "ok": True,
         "status": "ready",
         "device": device,
-        "models": ["ema", "antalia"]
+        "models": ["ahenk", "antalia", "ema"]
     })
 except Exception as exc:
     startup_stop.set()
@@ -124,6 +131,8 @@ for raw in sys.stdin:
             continue
 
         model_choice = str(req.get("model", "ema")).lower()
+        if model_choice not in ("ahenk", "antalia", "ema"):
+            raise ValueError("Bilinmeyen TTS modeli.")
         text = str(req.get("text", "")).strip()
         if not text:
             send({"ok": False, "error": "Seslendirilecek metin boş olamaz."})
@@ -152,7 +161,7 @@ for raw in sys.stdin:
 
         tracker = ProgressTracker()
 
-        if "antalia" in model_choice:
+        if model_choice == "antalia":
             orig_gen = antalia_tts._generator
             step_count = [0]
             target_steps = steps if steps else int(antalia_tts.defaults.get("steps", 8))
@@ -204,8 +213,9 @@ for raw in sys.stdin:
                 "model": "antalia"
             })
         else:
-            orig_think = ema_tts._engine.think
-            orig_decode = ema_tts._engine.decode
+            engine = ahenk_tts.engine if model_choice == "ahenk" else ema_tts
+            orig_think = engine._engine.think
+            orig_decode = engine._engine.decode
 
             def hooked_think(*args, **kwargs):
                 tracker.report(40)
@@ -215,8 +225,8 @@ for raw in sys.stdin:
                 tracker.report(75)
                 return orig_decode(*args, **kwargs)
 
-            ema_tts._engine.think = hooked_think
-            ema_tts._engine.decode = hooked_decode
+            engine._engine.think = hooked_think
+            engine._engine.decode = hooked_decode
             tracker.start(enable_ticker=True)
             try:
                 kwargs = {
@@ -227,11 +237,16 @@ for raw in sys.stdin:
                 if seed is not None:
                     kwargs["seed"] = seed
 
-                speech = ema_tts.say(text, **kwargs)
+                if model_choice == "ahenk":
+                    speech = ahenk_speech(ahenk_tts, text, steps=steps if steps is not None else 16,
+                                          cfg=cfg if cfg is not None else 2.0,
+                                          style=req.get("style") or "neutral", **kwargs)
+                else:
+                    speech = ema_voice.say(text, **kwargs)
                 tracker.report(100)
             finally:
-                ema_tts._engine.think = orig_think
-                ema_tts._engine.decode = orig_decode
+                engine._engine.think = orig_think
+                engine._engine.decode = orig_decode
                 tracker.stop()
 
             send({
@@ -241,7 +256,7 @@ for raw in sys.stdin:
                 "sample_rate": int(speech.sample_rate),
                 "seed": int(speech.seed),
                 "device": device,
-                "model": "ema"
+                "model": model_choice
             })
 
     except Exception as exc:

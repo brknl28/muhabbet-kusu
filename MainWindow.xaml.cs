@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -33,7 +34,8 @@ public sealed partial class MainWindow : Window
     private bool _isBusy;
     private bool _uiReady;
     private string? _lastGeneratedText;
-    private int _lastGeneratedModel = -1;
+    private string? _lastGeneratedModel;
+    private string? _lastGeneratedSettings;
     private string? _lastGeneratedWav;
     private bool _hasGeneratedAudio;
     private bool _sttActive;
@@ -42,7 +44,7 @@ public sealed partial class MainWindow : Window
     private string? _selectedAudio;
     private string? _lastTranscribedAudio;
     private DateTime _lastTranscribedWriteTime;
-    private int _lastTranscribedModel = -1;
+    private string? _lastTranscribedModel;
     private Process? _sttProcess;
     private MicrophoneRecorder? _microphone;
     private string? _recordingFile;
@@ -51,11 +53,13 @@ public sealed partial class MainWindow : Window
     private DateTime _recordingStarted;
     private string _idleStatusText = "Muhabbet Kuşu başlatılıyor…";
     private readonly ObservableCollection<GalleryItem> _galleryItems = new();
+    private string SelectedModelKey => (ModelSelector.SelectedItem as PivotItem)?.Tag as string ?? "ahenk";
 
     public MainWindow()
     {
         InitializeComponent();
         _uiReady = true;
+        ModelSelector_SelectionChanged(ModelSelector, null!);
         UpdateInputSummary();
         _mediaPlayer = new Windows.Media.Playback.MediaPlayer { AutoPlay = false };
         InitializePlaybackControls();
@@ -153,7 +157,7 @@ public sealed partial class MainWindow : Window
 
         if (_uiReady)
         {
-            bool nextStt = ModelSelector.SelectedIndex >= 2;
+            bool nextStt = SttModels.IsStt(SelectedModelKey);
             if (nextStt != _sttActive)
             {
                 if (nextStt) _ttsInput = InputTextBox.Text;
@@ -171,9 +175,17 @@ public sealed partial class MainWindow : Window
             GenerateButton.Content = nextStt ? "Metne Dönüştür" : "▶  Ses Oluştur";
         }
 
-        bool isAntalia = ModelSelector.SelectedIndex == 1;
-        AntaliaSettingsPanel.Visibility = isAntalia ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetColumnSpan(CommonParametersPanel, isAntalia ? 1 : 2);
+        bool isAntalia = SelectedModelKey == "antalia";
+        bool isAhenk = SelectedModelKey == "ahenk";
+        AntaliaSettingsPanel.Visibility = isAntalia || isAhenk ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumnSpan(CommonParametersPanel, isAntalia || isAhenk ? 1 : 2);
+        TtsSettingsTitle.Text = isAhenk ? "Ahenk Cep Ayarları" : "Antalia Özel Ayarları";
+        EqSettingsPanel.Visibility = isAntalia ? Visibility.Visible : Visibility.Collapsed;
+        StyleSettingsPanel.Visibility = isAhenk ? Visibility.Visible : Visibility.Collapsed;
+        StepsBox.Items.Clear();
+        foreach (int steps in isAhenk ? new[] { 16, 8, 4 } : new[] { 8, 4, 2, 1 })
+            StepsBox.Items.Add(new ComboBoxItem { Content = steps.ToString() });
+        StepsBox.SelectedIndex = 0;
 
         if (isAntalia)
         {
@@ -199,12 +211,12 @@ public sealed partial class MainWindow : Window
         CharCountText.Text = $"{length:N0} Karakter";
         if (_sttActive)
         {
-            var model = SttModels.ForTab(ModelSelector.SelectedIndex);
+            var model = SttModels.ForKey(SelectedModelKey);
             EstimatedSizeText.Text = model.Attribution;
             ToolTipService.SetToolTip(EstimatedSizeText, model.License);
             return;
         }
-        double speed = (double)AudioParameters.NormalizeSpeed(SpeedBox.Value, ModelSelector.SelectedIndex == 1);
+        double speed = (double)AudioParameters.NormalizeSpeed(SpeedBox.Value, SelectedModelKey == "antalia");
         double estimatedSeconds = length / (14.0 * speed);
         double estimatedKb = (44 + estimatedSeconds * ParseSampleRate(SampleRateBox.SelectedItem) * 2) / 1024;
         EstimatedSizeText.Text = $"Tahmini WAV: {estimatedKb:N0} KB";
@@ -214,6 +226,52 @@ public sealed partial class MainWindow : Window
     private void FixedSeedCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
     {
         SeedBox.IsEnabled = FixedSeedCheckBox.IsChecked == true;
+        if (_uiReady) UpdatePlaybackButtons();
+    }
+
+    private void SynthesisParameter_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
+    {
+        if (!_uiReady) return;
+        UpdateInputSummary();
+        UpdatePlaybackButtons();
+    }
+
+    private void SynthesisParameter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_uiReady) return;
+        UpdateInputSummary();
+        UpdatePlaybackButtons();
+    }
+
+    private void SynthesisParameter_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_uiReady) return;
+        UpdatePlaybackButtons();
+    }
+
+    private string GetSynthesisSettingsKey()
+    {
+        bool isAntalia = SelectedModelKey == "antalia";
+        bool isAhenk = SelectedModelKey == "ahenk";
+        var settings = new List<string>
+        {
+            SelectedModelKey,
+            AudioParameters.NormalizeSpeed(SpeedBox.Value, isAntalia).ToString(CultureInfo.InvariantCulture),
+            ParseSampleRate(SampleRateBox.SelectedItem).ToString(CultureInfo.InvariantCulture),
+            AudioParameters.NormalizeSeed(FixedSeedCheckBox.IsChecked == true, SeedBox.Value)?.ToString(CultureInfo.InvariantCulture) ?? "random"
+        };
+
+        if (isAntalia || isAhenk)
+        {
+            settings.Add(ParseSteps(StepsBox.SelectedItem).ToString(CultureInfo.InvariantCulture));
+            settings.Add(AudioParameters.NormalizeCfg(CfgBox.Value).ToString("R", CultureInfo.InvariantCulture));
+        }
+        if (isAntalia)
+            settings.Add(EqToggle.IsOn ? "eq:on" : "eq:off");
+        if (isAhenk)
+            settings.Add((StyleBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "neutral");
+
+        return string.Join("|", settings);
     }
 
     private void ChooseAudioButton_Click(object sender, RoutedEventArgs e)
@@ -237,7 +295,8 @@ public sealed partial class MainWindow : Window
     private void TranscribeGalleryButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isBusy || _recording || GalleryListView.SelectedItem is not GalleryItem item) return;
-        if (ModelSelector.SelectedIndex < 2) ModelSelector.SelectedIndex = 2;
+        if (!SttModels.IsStt(SelectedModelKey))
+            ModelSelector.SelectedItem = ModelSelector.Items.OfType<PivotItem>().First(item => (string)item.Tag == "duyu");
         _selectedAudio = item.FilePath;
         SttFileText.Text = item.Name;
         UpdatePlaybackButtons();
@@ -264,7 +323,7 @@ public sealed partial class MainWindow : Window
             {
                 if (!await EnsureMicrophonePermissionAsync()) return;
                 _microphone = new MicrophoneRecorder();
-                var recordingModel = SttModels.ForTab(ModelSelector.SelectedIndex).Key + "-stt";
+                var recordingModel = SttModels.ForKey(SelectedModelKey).Key + "-stt";
                 _recordingFile = Path.Combine(GetOutputsDirectory(), $"{recordingModel}_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString()[..4]}.wav");
                 _microphone.Start(_recordingFile);
                 _recording = true;
@@ -397,7 +456,7 @@ public sealed partial class MainWindow : Window
     private async Task TranscribeSelectedAudioAsync()
     {
         if (string.IsNullOrEmpty(_selectedAudio) || !File.Exists(_selectedAudio)) return;
-        var model = SttModels.ForTab(ModelSelector.SelectedIndex);
+        var model = SttModels.ForKey(SelectedModelKey);
         if (model.RequiresLicenseAcceptance && !await EnsureMihuLicenseAsync()) return;
         SetBusy(true, "STT modeli hazırlanıyor…");
         ProgressPanel.Visibility = Visibility.Visible;
@@ -451,7 +510,7 @@ public sealed partial class MainWindow : Window
             InputTextBox.Text = transcript;
             _lastTranscribedAudio = _selectedAudio;
             _lastTranscribedWriteTime = File.GetLastWriteTimeUtc(_selectedAudio);
-            _lastTranscribedModel = ModelSelector.SelectedIndex;
+            _lastTranscribedModel = SelectedModelKey;
             _idleStatusText = string.IsNullOrWhiteSpace(transcript) ? "Bu kayıtta konuşma algılanmadı." : "Metne dönüştürme tamamlandı.";
         }
         catch (Exception ex) { _idleStatusText = ex is OperationCanceledException ? "STT işlemi zaman aşımına uğradı." : ex.Message; }
@@ -486,8 +545,9 @@ public sealed partial class MainWindow : Window
         }
 
         var outputsDir = GetOutputsDirectory();
-        bool isAntalia = ModelSelector.SelectedIndex == 1;
-        string modelName = isAntalia ? "antalia" : "ema";
+        bool isAntalia = SelectedModelKey == "antalia";
+        bool isAhenk = SelectedModelKey == "ahenk";
+        string modelName = SelectedModelKey;
         string fileName = $"{modelName}_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString()[..4]}.wav";
         string output = Path.Combine(outputsDir, fileName);
 
@@ -504,9 +564,10 @@ public sealed partial class MainWindow : Window
             long? seed = AudioParameters.NormalizeSeed(FixedSeedCheckBox.IsChecked == true, SeedBox.Value);
             int sampleRate = ParseSampleRate(SampleRateBox.SelectedItem);
 
-            int? steps = isAntalia ? ParseSteps(StepsBox.SelectedItem) : null;
-            double? cfg = isAntalia ? AudioParameters.NormalizeCfg(CfgBox.Value) : null;
+            int? steps = isAntalia || isAhenk ? ParseSteps(StepsBox.SelectedItem) : null;
+            double? cfg = isAntalia || isAhenk ? AudioParameters.NormalizeCfg(CfgBox.Value) : null;
             bool? eq = isAntalia ? EqToggle.IsOn : null;
+            string? style = isAhenk ? (StyleBox.SelectedItem as ComboBoxItem)?.Tag as string : null;
 
             var reply = await _bridge.GenerateAsync(
                 modelName,
@@ -518,6 +579,7 @@ public sealed partial class MainWindow : Window
                 steps,
                 cfg,
                 eq,
+                style: style,
                 onProgress: pct =>
                 {
                     DispatcherQueue.TryEnqueue(() => UpdateProgress(pct));
@@ -533,7 +595,8 @@ public sealed partial class MainWindow : Window
 
             StatusText.Text = $"Hazır · {reply.Duration:0.00} sn · {reply.SampleRate} Hz · seed {reply.Seed}";
             _lastGeneratedText = input;
-            _lastGeneratedModel = isAntalia ? 1 : 0;
+            _lastGeneratedModel = SelectedModelKey;
+            _lastGeneratedSettings = GetSynthesisSettingsKey();
             _lastGeneratedWav = output;
             _hasGeneratedAudio = true;
             EstimatedSizeText.Text = $"WAV: {new FileInfo(output).Length / 1024.0:N0} KB";
@@ -853,13 +916,14 @@ public sealed partial class MainWindow : Window
         DeleteGalleryButton.IsEnabled = !_isBusy && !_recording && GalleryListView.SelectedItem is GalleryItem selected && File.Exists(selected.FilePath);
         TranscribeGalleryButton.IsEnabled = !_isBusy && !_recording && GalleryListView.SelectedItem is GalleryItem audio && File.Exists(audio.FilePath);
         SaveMp3Button.IsEnabled = !_isBusy && _hasGeneratedAudio && hasCurrentWav;
-        bool matchesLastGeneration = _lastGeneratedModel == ModelSelector.SelectedIndex &&
+        bool matchesLastGeneration = _lastGeneratedModel == SelectedModelKey &&
             string.Equals(_lastGeneratedText, InputTextBox.Text?.Trim(), StringComparison.Ordinal) &&
+            _lastGeneratedSettings == GetSynthesisSettingsKey() &&
             !string.IsNullOrEmpty(_lastGeneratedWav) && File.Exists(_lastGeneratedWav);
         GenerateButton.IsEnabled = !_isBusy && !matchesLastGeneration && !string.IsNullOrWhiteSpace(InputTextBox.Text);
         if (_sttActive)
             GenerateButton.IsEnabled = !_isBusy && !_recording && !string.IsNullOrEmpty(_selectedAudio) && File.Exists(_selectedAudio) &&
-                (_lastTranscribedModel != ModelSelector.SelectedIndex || _lastTranscribedAudio != _selectedAudio || _lastTranscribedWriteTime != File.GetLastWriteTimeUtc(_selectedAudio));
+                (_lastTranscribedModel != SelectedModelKey || _lastTranscribedAudio != _selectedAudio || _lastTranscribedWriteTime != File.GetLastWriteTimeUtc(_selectedAudio));
     }
 
     private void SetBusy(bool busy, string? message = null)
@@ -876,6 +940,7 @@ public sealed partial class MainWindow : Window
         StepsBox.IsEnabled = !busy;
         CfgBox.IsEnabled = !busy;
         EqToggle.IsEnabled = !busy;
+        StyleBox.IsEnabled = !busy;
 
         UpdatePlaybackButtons();
 

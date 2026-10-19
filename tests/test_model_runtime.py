@@ -8,10 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bridge"))
-from model_runtime import ASSETS, assets_ready, configure_cache, ensure_models, file_digest
+from model_runtime import ASSETS, REVISIONS, assets_ready, configure_cache, ensure_models, file_digest
 
-TEMP_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "test-temp"
-TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+TEMP_ROOT = None  # Use the operating system temp folder; do not retain test artifacts.
 
 
 class ModelRuntimeTests(unittest.TestCase):
@@ -21,7 +20,7 @@ class ModelRuntimeTests(unittest.TestCase):
             cache = root / "huggingface" / "hub" / ("models--" + repo.replace("/", "--"))
             (cache / "refs").mkdir(parents=True)
             (cache / "refs" / "main").write_text("revision")
-            snapshot = cache / "snapshots" / "revision"
+            snapshot = cache / "snapshots" / REVISIONS.get(repo, "revision")
             snapshot.mkdir(parents=True)
             for name in names:
                 path = snapshot / name
@@ -81,7 +80,7 @@ class ModelRuntimeTests(unittest.TestCase):
             damaged.write_bytes(b"bad! model")  # Same size as the original.
             self.assertFalse(assets_ready(root))
             repaired = []
-            def download(repo, name, local_files_only=False, force_download=False):
+            def download(repo, name, local_files_only=False, force_download=False, revision=None):
                 entry = next(e for e in entries if e["repo"] == repo and e["name"] == name)
                 path = root / entry["path"]
                 if force_download:
@@ -108,9 +107,9 @@ class ModelRuntimeTests(unittest.TestCase):
             root = Path(temp)
             blocked = True
             downloads = []
-            def download(repo, name, local_files_only=False):
+            def download(repo, name, local_files_only=False, revision=None):
                 cache = root / "huggingface" / "hub" / ("models--" + repo.replace("/", "--"))
-                snapshot = cache / "snapshots" / "revision"
+                snapshot = cache / "snapshots" / (revision or "revision")
                 path = snapshot / name
                 if path.exists():
                     return str(path)
@@ -132,7 +131,7 @@ class ModelRuntimeTests(unittest.TestCase):
                 blocked = False
                 ensure_models(root)
                 self.assertTrue(assets_ready(root))
-                self.assertEqual(6, len(downloads))
+                self.assertEqual(sum(len(names) for _, _, names in ASSETS), len(downloads))
 
 
 if __name__ == "__main__":

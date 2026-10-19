@@ -28,8 +28,27 @@ foreach ($component in @('python','ffmpeg')) {
     if (-not (Test-Path $runtimeSource)) { throw "Taşınabilir sürüm için $component çalışma ortamı eksik." }
     $runtimeTarget = Join-Path $PSScriptRoot "publish/runtime/$component"
     New-Item -ItemType Directory -Force $runtimeTarget | Out-Null
-    Copy-Item -Path (Join-Path $runtimeSource '*') -Destination $runtimeTarget -Recurse -Force
+    if ($component -eq 'python') {
+        Copy-Item -Path (Join-Path $runtimeSource '*') -Destination $runtimeTarget -Exclude 'Lib' -Recurse -Force
+        $libTarget = Join-Path $runtimeTarget 'Lib'
+        New-Item -ItemType Directory -Force $libTarget | Out-Null
+        Copy-Item -Path (Join-Path $runtimeSource 'Lib/*') -Destination $libTarget -Exclude 'site-packages' -Recurse -Force
+    } else {
+        Copy-Item -Path (Join-Path $runtimeSource '*') -Destination $runtimeTarget -Recurse -Force
+    }
 }
+# Refresh Python dependencies from the pinned development environment. The previous
+# setup payload can contain an older EMA runtime during local model development.
+$privatePackages = Join-Path $PSScriptRoot 'publish/runtime/python/Lib/site-packages'
+$absolutePackages = [IO.Path]::GetFullPath($privatePackages)
+$publishRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'publish'))
+if (-not $absolutePackages.StartsWith($publishRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Python paket yolu publish dışında.' }
+if (Test-Path -LiteralPath $absolutePackages) {
+    if ((Get-Item -LiteralPath $absolutePackages).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Bağlantılı Python paket klasörü temizlenemez.' }
+    Remove-Item -LiteralPath $absolutePackages -Recurse -Force
+}
+python (Join-Path $PSScriptRoot 'scripts/vendor_python.py') $privatePackages
+if ($LASTEXITCODE -ne 0) { throw 'Yerel Python çalışma ortamı güncellenemedi.' }
 if (Test-Path (Join-Path $PSScriptRoot 'artifacts/stt-runtime/mihu_stt')) {
     $sttPackages = Join-Path $PSScriptRoot 'publish/runtime/stt-packages'
     New-Item -ItemType Directory -Force $sttPackages | Out-Null

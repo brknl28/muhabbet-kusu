@@ -11,11 +11,14 @@ Windows için yerel Türkçe ses uygulaması. Metinden sese ve sesten metne dön
 
 Açık kaynaklı ve topluluk lisanslı Türkçe modeller:
 
-- [EMA Lightning](https://huggingface.co/canberkkkkkk/ema-lightning) — Metinden sese.
+- [Ahenk Cep](https://huggingface.co/ozgurguler/ahenk-cep-tr) — Metinden sese, yedi üslup. Ağırlıkları [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) lisanslıdır.
 - [Antalia-2 Mini](https://huggingface.co/cloud0day3/antalia-mini) — Metinden sese.
+- [Duyu-small](https://huggingface.co/KaanAydinli/Duyu-small) — Türkçe ve İngilizce kısa ses kayıtlarından metne. Apache 2.0 lisanslıdır.
+- [EMA Lightning](https://huggingface.co/canberkkkkkk/ema-lightning) — Metinden sese. trnorm ile sayı, tarih, saat ve tutar okuma.
 - [mihu Turkish STT](https://huggingface.co/mihuai/turkish-stt) — Sesten metne. Community License kullanım kısıtları içerir.
 - [Uran STT Base](https://huggingface.co/curiositytech/uran-stt-base) — Sesten metne. Apache 2.0 lisanslıdır.
-- [Duyu-small](https://huggingface.co/KaanAydinli/Duyu-small) — Türkçe ve İngilizce kısa ses kayıtlarından metne. Apache 2.0 lisanslıdır.
+
+[trnorm](https://github.com/ozguradmin/ahenk-turkish-tts), EMA Lightning ve Ahenk Cep için Türkçe metni okunuş biçimine çevirir.
 
 ## Kurulum
 
@@ -46,7 +49,7 @@ TTS modelleri kurulum sırasında veya ilk açılışta indirilir. STT modelleri
 .NET 8 SDK, Python 3.12 ve FFmpeg gerekir. İlk çalışma ortamını hazırlamak için Inno Setup 6.7+ kullanın:
 
 ```powershell
-python -m pip install ema-lightning antalia-mini
+python -m pip install ema-lightning==1.1.2 antalia-mini==1.0.0
 python -m pip install --target artifacts/stt-runtime -r requirements-stt.txt
 .\build-setup.ps1 -CompilerPath "C:\...\ISCC.exe"
 .\build.ps1
@@ -57,6 +60,6 @@ Setup çıktısı `artifacts/setup/`, kurulum gerektirmeyen çıktı `publish/` 
 
 ## Lisans
 
-Uygulama kaynak kodu [MIT](LICENSE) lisanslıdır. Üçüncü taraf bileşenler kendi lisanslarına tabidir. Uran ve Duyu modelleri Apache 2.0; mihu modeli kısıtları bulunan Community License kapsamındadır. Powered by mihu.
+Uygulama kaynak kodu [MIT](LICENSE) lisanslıdır. Ahenk Cep [model ağırlıkları CC BY 4.0](Assets/ahenk-cep-LICENSE.txt), çıkarım kodu ve trnorm/trtts Apache 2.0 lisanslıdır. [Ahenk Cep model kartı](https://huggingface.co/ozgurguler/ahenk-cep-tr) ve [atıf bilgileri](THIRD_PARTY_NOTICES.txt). Uran ve Duyu modelleri Apache 2.0; mihu modeli kısıtları bulunan Community License kapsamındadır. Powered by mihu.
 
 [Lisans ve atıf bildirimleri](THIRD_PARTY_NOTICES.txt) · [Dağıtım kontrolü](docs/release-validation.md)

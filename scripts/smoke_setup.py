@@ -40,7 +40,7 @@ def main():
             ready = read_until("ready")
             results = {"device": ready["device"], "offline": True, "models": {}}
             (root / "outputs").mkdir(exist_ok=True)
-            for model in ("ema", "antalia"):
+            for model in ("ahenk", "antalia", "ema"):
                 output = root / "outputs" / ("setup-smoke-" + model + ".wav")
                 request = {"command": "generate", "model": model, "text": "Merhaba, muhabbet kuşu.", "path": str(output), "speed": 1.0, "sample_rate": 24000, "seed": 42}
                 process.stdin.write(json.dumps(request) + "\n")

@@ -139,7 +139,8 @@ internal sealed class PythonEmaBridge : IDisposable, IAsyncDisposable
         double? cfg = null,
         bool? eq = null,
         Action<int>? onProgress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? style = null)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new ArgumentException("Seslendirilecek metin boş olamaz.", nameof(text));
@@ -164,7 +165,8 @@ internal sealed class PythonEmaBridge : IDisposable, IAsyncDisposable
                 seed,
                 steps,
                 cfg,
-                eq
+                eq,
+                style
             };
 
             var json = JsonSerializer.Serialize(request);

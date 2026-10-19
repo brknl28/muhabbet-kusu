@@ -7,7 +7,10 @@ from pathlib import Path
 ASSETS = (
     ("EMA Lightning", "canberkkkkkk/ema-lightning", ("config.json", "ema.pt", "decoder.pt")),
     ("Antalia-2 Mini", "cloud0day3/antalia-mini", ("config.json", "acoustic.safetensors", "vocoder.safetensors")),
+    ("Ahenk Cep", "ozgurguler/ahenk-cep-tr", ("student.pt", "decoder.pt")),
 )
+
+REVISIONS = {"ozgurguler/ahenk-cep-tr": "345c4cbb934815fa96ffd0d5061fd913237544bc"}
 
 
 def configure_cache(root=None):
@@ -41,10 +44,13 @@ def assets_ready(root):
             return False
         for _, repo, _ in ASSETS:
             cache = root / "huggingface" / "hub" / ("models--" + repo.replace("/", "--"))
-            reference = cache / "refs" / "main"
-            if not reference.is_file() or not reference.read_text().strip():
-                return False
-            snapshot = cache / "snapshots" / reference.read_text().strip()
+            revision = REVISIONS.get(repo)
+            if revision is None:
+                reference = cache / "refs" / "main"
+                if not reference.is_file() or not reference.read_text().strip():
+                    return False
+                revision = reference.read_text().strip()
+            snapshot = cache / "snapshots" / revision
             if any((root / entry["path"]).parent != snapshot for entry in entries if entry["repo"] == repo):
                 return False
         for entry in entries:
@@ -84,9 +90,10 @@ def ensure_models(root, on_status=lambda message: None):
     total = sum(len(names) for _, _, names in ASSETS)
     completed = 0
     for label, repo, names in ASSETS:
+        revision = {"revision": REVISIONS[repo]} if repo in REVISIONS else {}
         for name in names:
             try:
-                path = Path(hf_hub_download(repo, name, local_files_only=True))
+                path = Path(hf_hub_download(repo, name, local_files_only=True, **revision))
                 known = previous.get((repo, name))
                 if path.is_symlink() or (known and not file_matches(path, known)):
                     on_status(f"{label} onarılıyor ({completed + 1}/{total})…")
@@ -95,13 +102,13 @@ def ensure_models(root, on_status=lambda message: None):
                     if not path.parent.resolve().is_relative_to(root):
                         raise ValueError("Model dosyası uygulama klasörünün dışında.")
                     path.unlink()
-                    path = Path(hf_hub_download(repo, name, force_download=True))
+                    path = Path(hf_hub_download(repo, name, force_download=True, **revision))
             except LocalEntryNotFoundError:
                 on_status(f"{label} indiriliyor ({completed + 1}/{total})…")
-                path = Path(hf_hub_download(repo, name))
+                path = Path(hf_hub_download(repo, name, **revision))
             completed += 1
             on_status(f"{label} hazırlanıyor ({completed}/{total})…")
-            entries.append({"repo": repo, "name": name, "path": str(path.relative_to(root)), "size": path.stat().st_size, "sha256": file_digest(path)})
+            entries.append({"repo": repo, "name": name, "path": str(path.resolve().relative_to(root)), "size": path.stat().st_size, "sha256": file_digest(path)})
     temporary = root / f"ready.{os.getpid()}.tmp"
     temporary.write_text(json.dumps(entries, indent=2), encoding="utf-8")
     temporary.replace(root / "ready.json")

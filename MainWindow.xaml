@@ -20,11 +20,12 @@
                             <Setter Property="Padding" Value="12,8,12,0"/>
                         </Style>
                     </Pivot.Resources>
-                    <PivotItem Header="EMA Lightning"/>
-                    <PivotItem Header="Antalia-2 Mini"/>
-                    <PivotItem Header="mihu Turkish STT"/>
-                    <PivotItem Header="Uran STT Base"/>
-                    <PivotItem Header="Duyu-small"/>
+                    <PivotItem Header="Ahenk Cep" Tag="ahenk"/>
+                    <PivotItem Header="Antalia-2 Mini" Tag="antalia"/>
+                    <PivotItem Header="EMA Lightning" Tag="ema"/>
+                    <PivotItem Header="Duyu-small" Tag="duyu"/>
+                    <PivotItem Header="mihu Turkish STT" Tag="mihu"/>
+                    <PivotItem Header="Uran STT Base" Tag="uran"/>
                 </Pivot>
         <Button Grid.Row="0" Content="Lisanslar" HorizontalAlignment="Right" VerticalAlignment="Center"
                 Click="LicensesButton_Click" Margin="0,0,0,20"/>
@@ -87,7 +88,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.ColumnSpan="4" Text="Sentez Parametreleri" FontWeight="SemiBold" FontSize="15"/>
@@ -95,11 +96,13 @@
                                 <TextBlock Text="Hız" FontSize="12"/>
                                 <NumberBox x:Name="SpeedBox" Value="1.00" SmallChange="0.05"
                                            Minimum="0.25" Maximum="4.00" HorizontalAlignment="Stretch"
+                                           ValueChanged="SynthesisParameter_ValueChanged"
                                            SpinButtonPlacementMode="Compact"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
                                 <TextBlock Text="Örnekleme (Hz)" FontSize="12"/>
-                                <ComboBox x:Name="SampleRateBox" HorizontalAlignment="Stretch" SelectedIndex="0">
+                                <ComboBox x:Name="SampleRateBox" HorizontalAlignment="Stretch" SelectedIndex="0"
+                                          SelectionChanged="SynthesisParameter_SelectionChanged">
                                     <ComboBoxItem Content="48000 Hz"/>
                                     <ComboBoxItem Content="24000 Hz"/>
                                     <ComboBoxItem Content="16000 Hz"/>
@@ -116,6 +119,7 @@
                                 <TextBlock Text="Seed değeri" FontSize="12"/>
                                 <NumberBox x:Name="SeedBox" Value="0" Minimum="0" Maximum="2147483647"
                                            HorizontalAlignment="Stretch" IsEnabled="False"
+                                           ValueChanged="SynthesisParameter_ValueChanged"
                                            SpinButtonPlacementMode="Compact"/>
                             </StackPanel>
                         </Grid>
@@ -128,12 +132,13 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.ColumnSpan="3" Text="Antalia Özel Ayarları" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock x:Name="TtsSettingsTitle" Grid.ColumnSpan="3" Text="Ahenk Cep Ayarları" FontWeight="SemiBold" FontSize="15"/>
                             <StackPanel Grid.Row="1" Spacing="4">
                                 <TextBlock Text="Adım" FontSize="12"/>
-                                <ComboBox x:Name="StepsBox" HorizontalAlignment="Stretch" SelectedIndex="0">
+                                <ComboBox x:Name="StepsBox" HorizontalAlignment="Stretch" SelectedIndex="0"
+                                          SelectionChanged="SynthesisParameter_SelectionChanged">
                                     <ComboBoxItem Content="8"/>
                                     <ComboBoxItem Content="4"/>
                                     <ComboBoxItem Content="2"/>
@@ -144,12 +149,27 @@
                                 <TextBlock Text="CFG" FontSize="12"/>
                                 <NumberBox x:Name="CfgBox" Value="2.0" SmallChange="0.1"
                                            Minimum="0.5" Maximum="10.0" HorizontalAlignment="Stretch"
+                                           ValueChanged="SynthesisParameter_ValueChanged"
                                            SpinButtonPlacementMode="Compact"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
+                            <StackPanel x:Name="EqSettingsPanel" Grid.Row="1" Grid.Column="2" Spacing="4">
                                 <TextBlock Text="EQ ton filtresi" FontSize="12"/>
-                                <ToggleSwitch x:Name="EqToggle" MinWidth="0" Height="32" HorizontalAlignment="Stretch"
+                                <ToggleSwitch x:Name="EqToggle" MinWidth="0" Height="32" HorizontalAlignment="Left"
+                                              Toggled="SynthesisParameter_Toggled"
                                               IsOn="True" OnContent="" OffContent=""/>
+                            </StackPanel>
+                            <StackPanel x:Name="StyleSettingsPanel" Grid.Row="1" Grid.Column="2" Spacing="4" Visibility="Collapsed">
+                                <TextBlock Text="Üslup" FontSize="12"/>
+                                <ComboBox x:Name="StyleBox" HorizontalAlignment="Stretch" SelectedIndex="0"
+                                          SelectionChanged="SynthesisParameter_SelectionChanged">
+                                    <ComboBoxItem Content="Nötr" Tag="neutral"/>
+                                    <ComboBoxItem Content="Sakin" Tag="calm"/>
+                                    <ComboBoxItem Content="Neşeli" Tag="cheerful"/>
+                                    <ComboBoxItem Content="Empatik" Tag="empathetic"/>
+                                    <ComboBoxItem Content="Üzgün" Tag="sad"/>
+                                    <ComboBoxItem Content="Şaşkın" Tag="surprised"/>
+                                    <ComboBoxItem Content="Kızgın" Tag="angry"/>
+                                </ComboBox>
                             </StackPanel>
                         </Grid>
                     </Grid>
